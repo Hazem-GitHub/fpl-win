@@ -31,8 +31,9 @@ export default async function FixturesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Fixtures</h1>
           <p className="mt-1 text-sm text-muted">
-            Live scores while matches are on, then the next Premier League
-            gameweeks with fixture difficulty for each side.
+            Live pitch simulation while matches are on — second-resolution
+            clock, then the next Premier League gameweeks with fixture
+            difficulty for each side.
           </p>
         </div>
       </div>

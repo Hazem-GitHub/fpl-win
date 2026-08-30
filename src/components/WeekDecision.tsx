@@ -2,6 +2,7 @@
 
 import { useAppState } from "@/components/AppState";
 import { Jump } from "@/components/Jump";
+import { Icon } from "./Icon";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { PlayerProfile } from "@/components/PlayerProfile";
 import {
@@ -12,13 +13,14 @@ import {
 } from "@/lib/app-href";
 import { Abbr } from "@/components/Abbr";
 import { ABBR, abbr, posAbbr, posLong } from "@/lib/abbr";
-import { formatPrice, formatXp, formTrend } from "@/lib/format";
+import { formatPrice, formatXp, formTrend, xpGradeClass, xpGradeMutedClass } from "@/lib/format";
 import type { ChipAdvice } from "@/lib/optimize/chips";
 import type { TransferMove, TransferPlan } from "@/lib/optimize/transfers";
 import type { RankedPlayer } from "@/lib/xp/model";
 import {
   BarChart3,
   CalendarDays,
+  Check,
   LayoutGrid,
   Shirt,
   Sparkles,
@@ -63,7 +65,7 @@ function formMark(form: number, ppg: number) {
       ? "text-mint"
       : trend === "down" || trend === "cold"
         ? "text-danger"
-        : "text-white/45";
+        : "text-muted";
   const label =
     ppg > 0
       ? `Last 4 gameweeks: ${form.toFixed(1)} pts/game (season ${ppg.toFixed(1)} ${abbr("ppg")})`
@@ -81,6 +83,68 @@ function signedPrice(tenths: number): string {
 function signedXp(value: number): string {
   if (value > 0) return `+${formatXp(value)}`;
   return formatXp(value);
+}
+
+function swapKey(move: TransferMove): string {
+  return `${move.out.id}:${move.inn.id}`;
+}
+
+const WEEK_PLAN_KEY = "fpl-win-week-plan";
+
+function mergeMoves(...lists: TransferMove[][]): TransferMove[] {
+  const seen = new Set<string>();
+  const rows: TransferMove[] = [];
+  for (const list of lists) {
+    for (const move of list) {
+      const key = swapKey(move);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push(move);
+    }
+  }
+  return rows;
+}
+
+function readWeekPlan(entryId: number, gameweekId: number): TransferMove[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(WEEK_PLAN_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as {
+      entryId?: number;
+      gw?: number;
+      moves?: TransferMove[];
+    };
+    if (parsed.entryId !== entryId || parsed.gw !== gameweekId) return [];
+    return Array.isArray(parsed.moves) ? parsed.moves : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeWeekPlan(
+  entryId: number,
+  gameweekId: number,
+  moves: TransferMove[],
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      WEEK_PLAN_KEY,
+      JSON.stringify({ entryId, gw: gameweekId, moves }),
+    );
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
+
+function DoneBadge({ children = "Done on FPL" }: { children?: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+      <Icon icon={Check} size="xs" className="text-accent" />
+      {children}
+    </span>
+  );
 }
 
 function planKey(plan: TransferPlan): string {
@@ -386,7 +450,7 @@ function MiniCard({
     >
       <div className="relative mx-auto w-fit">
         <div
-          className={`relative overflow-hidden rounded-md bg-black/30 ring-1 ${ring} transition duration-150 group-hover:scale-105 group-focus-visible:scale-105 ${
+          className={`week-mini-shot relative overflow-hidden rounded-md ring-1 ${ring} transition duration-150 group-hover:scale-105 group-focus-visible:scale-105 ${
             tone === "in" ? "week-in-burst" : ""
           }`}
         >
@@ -423,7 +487,7 @@ function MiniCard({
         ) : null}
       </div>
 
-      <div className={`mt-1.5 overflow-hidden rounded-md bg-black/70 text-center shadow-sm ring-1 ${ring}`}>
+      <div className={`week-mini-plate mt-1.5 overflow-hidden rounded-md text-center shadow-sm ring-1 ${ring}`}>
         <div className="flex items-center justify-between gap-1 px-1 pt-1">
           <span
             className={`rounded px-1 py-px text-[9px] font-bold uppercase leading-none ${POS_CHIP[player.position]}`}
@@ -432,11 +496,11 @@ function MiniCard({
             {pos}
           </span>
           <span className="flex min-w-0 items-center gap-0.5">
-            <span className="tabular text-[11px] font-bold leading-none text-mint">
+            <span className={`tabular text-[11px] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
               {formatXp(player.xpThis)}
             </span>
             <span
-              className="text-[7px] font-semibold uppercase tracking-wide text-mint/75"
+              className={`text-[7px] font-semibold uppercase tracking-wide ${xpGradeMutedClass(player.xpThis)}`}
               title={abbr("xp")}
             >
               xP
@@ -449,14 +513,14 @@ function MiniCard({
             </span>
           </span>
         </div>
-        <p className="truncate px-1 pt-1 text-[12px] font-semibold leading-tight text-white group-hover:text-mint" suppressHydrationWarning>
+        <p className="truncate px-1 pt-1 text-[12px] font-semibold leading-tight text-foreground group-hover:text-mint" suppressHydrationWarning>
           {player.webName}
         </p>
-        <p className="tabular px-1 text-[11px] font-bold leading-none text-white">
+        <p className="tabular px-1 text-[11px] font-bold leading-none text-foreground">
           {formatPrice(priceTenths ?? player.cost)}
         </p>
         {priceKind ? (
-          <p className="text-[9px] uppercase tracking-wide text-white/50">{priceKind}</p>
+          <p className="text-[9px] uppercase tracking-wide text-muted">{priceKind}</p>
         ) : null}
         <p
           className={`mx-1 mb-1 mt-1 inline-block rounded px-1 py-px text-[10px] ${fx.className}`}
@@ -654,6 +718,117 @@ function MoveJumps({ move }: { move: TransferMove }) {
   );
 }
 
+function TransferRow({
+  move,
+  done,
+  delay,
+  onOpen,
+}: {
+  move: TransferMove;
+  done?: boolean;
+  delay: number;
+  onOpen: (player: RankedPlayer) => void;
+}) {
+  const why = whyTransfer(move);
+  const bankDelta = -move.net;
+  const gwDelta = move.inn.xpThis - move.out.xpThis;
+  const horizon = move.inn.xpNext5 - move.out.xpNext5;
+  return (
+    <div
+      className={`week-swap-row rounded-lg border px-3 py-3 ${
+        done
+          ? "border-accent/45 bg-accent/8"
+          : "border-line bg-panel-2/60"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <MiniCard
+          player={move.out}
+          tone="out"
+          delayMs={delay}
+          onOpen={onOpen}
+          priceTenths={move.sell}
+          priceKind="sell"
+        />
+        <TransferArrow
+          xpDelta={gwDelta}
+          bankDelta={bankDelta}
+          delayMs={delay + 180}
+        />
+        <MiniCard
+          player={move.inn}
+          tone="in"
+          delayMs={delay + 320}
+          onOpen={onOpen}
+          priceTenths={move.buy}
+          priceKind="buy"
+        />
+        <div className="min-w-48 flex-1 text-xs leading-5">
+          <p className="flex flex-wrap items-center gap-2 font-medium">
+            {move.out.webName} → {move.inn.webName}
+            {done ? <DoneBadge /> : null}
+          </p>
+          <p className="text-muted">
+            {formatPrice(move.sell)} sell → {formatPrice(move.buy)} buy
+            {` · ${posAbbr(move.out.positionShort)} → ${posAbbr(move.inn.positionShort)}`}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span
+              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
+                gwDelta >= 0
+                  ? "bg-accent/15 text-accent"
+                  : "bg-danger/15 text-danger"
+              }`}
+            >
+              {signedXp(gwDelta)} this {abbr("gw")}
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
+                horizon >= 0
+                  ? "bg-accent/10 text-accent"
+                  : "bg-danger/10 text-danger"
+              }`}
+            >
+              {signedXp(horizon)} / 5 {abbr("gw")}
+            </span>
+            <span
+              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
+                bankDelta >= 0
+                  ? "bg-accent/10 text-accent"
+                  : "bg-danger/10 text-danger"
+              }`}
+            >
+              {signedPrice(bankDelta)} bank
+            </span>
+          </div>
+          {done ? (
+            <p className="mt-3 text-xs text-accent">
+              Already on your FPL squad for this deadline.
+            </p>
+          ) : (
+            <div className="mt-3 border-t border-line pt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+                Why this transfer
+              </p>
+              <p className="mt-1 text-sm font-medium leading-5 text-foreground">
+                {why.headline}
+              </p>
+              {why.points.length > 0 ? (
+                <ul className="mt-1.5 space-y-0.5 text-foreground/80">
+                  {why.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <MoveJumps move={move} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WeekDecision({
   gameweekName,
   deadline,
@@ -666,6 +841,10 @@ export function WeekDecision({
   teamName,
   squad,
   chips,
+  madeMoves,
+  captainId,
+  viceId,
+  gameweekId,
   compact,
 }: {
   gameweekName: string;
@@ -679,6 +858,10 @@ export function WeekDecision({
   teamName?: string;
   squad?: RankedPlayer[];
   chips?: ChipAdvice[];
+  madeMoves?: TransferMove[];
+  captainId?: number | null;
+  viceId?: number | null;
+  gameweekId?: number;
   compact?: boolean;
 }) {
   const app = useAppState();
@@ -698,6 +881,39 @@ export function WeekDecision({
   const hold = plan.moves.length === 0;
   const captain = plan.lineup.captain;
   const vice = plan.lineup.vice;
+  const squadIds = useMemo(
+    () => new Set((squad ?? []).map((player) => player.id)),
+    [squad],
+  );
+  const made = madeMoves ?? [];
+  const madeKeys = useMemo(
+    () => new Set(made.map(swapKey)),
+    [made],
+  );
+  const [remembered, setRemembered] = useState<TransferMove[]>([]);
+  useEffect(() => {
+    if (!entryId || !gameweekId) return;
+    const stored = readWeekPlan(entryId, gameweekId);
+    const merged = mergeMoves(stored, made, bestPlan.moves);
+    writeWeekPlan(entryId, gameweekId, merged);
+    setRemembered(merged);
+  }, [entryId, gameweekId, made, bestPlan.moves]);
+  const liveDone = (move: TransferMove) =>
+    squadIds.has(move.inn.id) && !squadIds.has(move.out.id);
+  const pendingMoves = plan.moves.filter((move) => {
+    if (madeKeys.has(swapKey(move))) return false;
+    return !liveDone(move);
+  });
+  const doneMoves = useMemo(() => {
+    return mergeMoves(
+      made,
+      plan.moves.filter(liveDone),
+      remembered.filter((move) => madeKeys.has(swapKey(move)) || liveDone(move)),
+    );
+  }, [made, madeKeys, plan.moves, remembered, squadIds]);
+  const transfersDone = pendingMoves.length === 0 && doneMoves.length > 0;
+  const captainDone = captainId === captain.id;
+  const viceDone = viceId === vice.id;
   const runnerUp = formations?.find(
     (row) => row.formation !== plan.lineup.formation,
   );
@@ -878,7 +1094,7 @@ export function WeekDecision({
       </div>
 
       <div className="space-y-4 p-3 sm:p-4">
-        {hold ? (
+        {hold && doneMoves.length === 0 ? (
           <p className="text-sm leading-6 text-foreground/90">
             Keep the squad. Holding projects{" "}
             <strong className="tabular text-accent">{formatXp(plan.rawXp)}</strong>{" "}
@@ -889,112 +1105,50 @@ export function WeekDecision({
           </p>
         ) : (
           <div className="space-y-4">
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+            <h3 className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted">
               Transfers{showingAlt ? " · this option" : ""}
+              {transfersDone ? <DoneBadge /> : null}
             </h3>
-            {plan.moves.map((move, i) => {
-              const delay = i * 180;
-              const why = whyTransfer(move);
-              const bankDelta = -move.net;
-              const gwDelta = move.inn.xpThis - move.out.xpThis;
-              const horizon = move.inn.xpNext5 - move.out.xpNext5;
-              return (
-                <div
-                  key={`${move.out.id}-${move.inn.id}`}
-                  className="week-swap-row rounded-lg border border-line bg-panel-2/60 px-3 py-3"
-                >
-                  <div className="flex flex-wrap items-center gap-3">
-                    <MiniCard
-                      player={move.out}
-                      tone="out"
-                      delayMs={delay}
-                      onOpen={(player) => {
-                        setOpen(player);
-                        app.setFocusPlayer(player.id);
-                      }}
-                      priceTenths={move.sell}
-                      priceKind="sell"
-                    />
-                    <TransferArrow
-                      xpDelta={gwDelta}
-                      bankDelta={bankDelta}
-                      delayMs={delay + 180}
-                    />
-                    <MiniCard
-                      player={move.inn}
-                      tone="in"
-                      delayMs={delay + 320}
-                      onOpen={(player) => {
-                        setOpen(player);
-                        app.setFocusPlayer(player.id);
-                      }}
-                      priceTenths={move.buy}
-                      priceKind="buy"
-                    />
-                    <div className="min-w-48 flex-1 text-xs leading-5">
-                      <p className="font-medium">
-                        {move.out.webName} → {move.inn.webName}
-                      </p>
-                      <p className="text-muted">
-                        {formatPrice(move.sell)} sell → {formatPrice(move.buy)} buy
-                        {` · ${posAbbr(move.out.positionShort)} → ${posAbbr(move.inn.positionShort)}`}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        <span
-                          className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                            gwDelta >= 0
-                              ? "bg-accent/15 text-accent"
-                              : "bg-danger/15 text-danger"
-                          }`}
-                        >
-                          {signedXp(gwDelta)} this {abbr("gw")}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                            horizon >= 0
-                              ? "bg-accent/10 text-accent"
-                              : "bg-danger/10 text-danger"
-                          }`}
-                        >
-                          {signedXp(horizon)} / 5 {abbr("gw")}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                            bankDelta >= 0
-                              ? "bg-accent/10 text-accent"
-                              : "bg-danger/10 text-danger"
-                          }`}
-                        >
-                          {signedPrice(bankDelta)} bank
-                        </span>
-                      </div>
-                      <div className="mt-3 border-t border-line pt-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                          Why this transfer
-                        </p>
-                        <p className="mt-1 text-sm font-medium leading-5 text-foreground">
-                          {why.headline}
-                        </p>
-                        {why.points.length > 0 ? (
-                          <ul className="mt-1.5 space-y-0.5 text-foreground/80">
-                            {why.points.map((point) => (
-                              <li key={point}>{point}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        <MoveJumps move={move} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {doneMoves.map((move, i) => (
+              <TransferRow
+                key={`done-${swapKey(move)}`}
+                move={move}
+                done
+                delay={i * 180}
+                onOpen={(player) => {
+                  setOpen(player);
+                  app.setFocusPlayer(player.id);
+                }}
+              />
+            ))}
+            {pendingMoves.map((move, i) => (
+              <TransferRow
+                key={`pending-${swapKey(move)}`}
+                move={move}
+                delay={(doneMoves.length + i) * 180}
+                onOpen={(player) => {
+                  setOpen(player);
+                  app.setFocusPlayer(player.id);
+                }}
+              />
+            ))}
+            {hold && doneMoves.length > 0 ? (
+              <p className="text-sm leading-6 text-foreground/90">
+                No further transfers. Holding projects{" "}
+                <strong className="tabular text-accent">{formatXp(plan.rawXp)}</strong>{" "}
+                {abbr("xp")}
+                {showingAlt
+                  ? `, ${signedXp(plan.netXp - bestPlan.netXp)} vs the recommended plan.`
+                  : ". Spend the free transfer only if news breaks before the deadline."}
+              </p>
+            ) : null}
           </div>
         )}
 
         <div>
-          <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted">
+          <h3 className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted">
             Captain
+            {captainDone ? <DoneBadge>Set on FPL</DoneBadge> : null}
           </h3>
           <div className="flex flex-wrap items-center gap-3">
             <MiniCard
@@ -1020,17 +1174,22 @@ export function WeekDecision({
             <div className="text-sm leading-6">
               <p>
                 Captain <strong>{captain.webName}</strong>{" "}
-                <span className="tabular text-accent">
+                <span className={`tabular ${xpGradeClass(captain.xpThis)}`}>
                   {formatXp(captain.xpThis)} {abbr("xp")}
                 </span>
                 {" — doubles to "}
-                <span className="tabular font-medium">
+                <span className={`tabular font-medium ${xpGradeClass(captain.xpThis * 2)}`}>
                   {formatXp(captain.xpThis * 2)}
                 </span>
                 .
               </p>
               <p className="text-xs text-muted">
-                Vice {vice.webName} ({formatXp(vice.xpThis)} {abbr("xp")})
+                Vice {vice.webName} (
+                <span className={xpGradeClass(vice.xpThis)}>
+                  {formatXp(vice.xpThis)} {abbr("xp")}
+                </span>
+                )
+                {viceDone ? " · already set on FPL" : ""}
                 {captain.news ? ` · ${captain.news}` : ""}
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">

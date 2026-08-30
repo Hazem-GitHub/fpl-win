@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getMatchBoard } from "@/lib/matches";
+import { loadMatchBoard } from "@/lib/matches";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const board = await getMatchBoard();
+    const board = await loadMatchBoard();
     return NextResponse.json(board, {
       headers: { "Cache-Control": "no-store" },
     });

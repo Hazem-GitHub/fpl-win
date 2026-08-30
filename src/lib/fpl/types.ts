@@ -162,6 +162,16 @@ export type FplEntry = {
   started_event: number | null;
 };
 
+export type FplTransfer = {
+  element_in: number;
+  element_in_cost: number;
+  element_out: number;
+  element_out_cost: number;
+  entry: number;
+  event: number;
+  time: string;
+};
+
 export type FplHistoryRow = {
   event: number;
   points: number;

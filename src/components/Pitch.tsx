@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { formatPrice, formatXp, formTrend } from "@/lib/format";
+import { formatPrice, formatXp, formTrend, xpGradeClass, xpGradeMutedClass } from "@/lib/format";
 import { abbr, posLong } from "@/lib/abbr";
 import type { RankedPlayer } from "@/lib/xp/model";
 import { PlayerPhoto } from "./PlayerPhoto";
@@ -11,23 +11,23 @@ const ZONES = [
   {
     key: "attack",
     label: "Attack",
-    bar: "bg-rose-400",
-    wash: "bg-rose-500/20",
-    fade: "text-rose-50/22",
+    hair: "via-rose-200/65",
+    wash: "bg-rose-500/12",
+    fade: "text-rose-50/18",
   },
   {
     key: "midfield",
     label: "Midfield",
-    bar: "bg-amber-300",
-    wash: "bg-amber-400/16",
-    fade: "text-amber-50/22",
+    hair: "via-amber-100/60",
+    wash: "bg-amber-400/10",
+    fade: "text-amber-50/18",
   },
   {
     key: "defence",
     label: "Defence",
-    bar: "bg-sky-400",
-    wash: "bg-sky-400/22",
-    fade: "text-sky-50/24",
+    hair: "via-sky-200/65",
+    wash: "bg-sky-400/12",
+    fade: "text-sky-50/18",
   },
 ] as const;
 
@@ -106,12 +106,12 @@ function Shirt({
       onClick={() => onOpen(player)}
       className={`group min-w-0 text-left ${
         bench
-          ? "w-[min(22%,3.5rem)] shrink-0 @[28rem]:w-[min(18%,5rem)] @[40rem]:w-[min(18%,5.75rem)]"
-          : "w-0 max-w-[3.5rem] flex-[1_1_0%] @[28rem]:max-w-[4.65rem] @[40rem]:max-w-[5.75rem]"
+          ? "w-[min(24%,4.4rem)] shrink-0 @[28rem]:w-[min(18%,5rem)] @[40rem]:w-[min(18%,5.75rem)]"
+          : "w-0 max-w-[4.75rem] flex-[1_1_0%] @[28rem]:max-w-[5.1rem] @[40rem]:max-w-[5.75rem]"
       }`}
       aria-label={`${player.webName} profile, ${formatXp(player.xpThis)} ${abbr("xp")}, form ${player.form.toFixed(1)}`}
     >
-      <div className="relative mx-auto w-[66%] @[32rem]:w-[70%]">
+      <div className="relative mx-auto w-[78%] @[32rem]:w-[72%]">
         <div className="relative transition duration-150 group-hover:scale-105 group-focus-visible:scale-105">
           <PlayerPhoto
             key={player.id}
@@ -146,11 +146,11 @@ function Shirt({
             {pos}
           </span>
           <span className="flex min-w-0 items-center gap-px">
-            <span className="tabular text-[clamp(7px,2.45cqi,13px)] font-bold leading-none text-mint">
+            <span className={`tabular text-[clamp(7px,2.45cqi,13px)] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
               {formatXp(player.xpThis)}
             </span>
             <span
-              className="hidden text-[clamp(6px,1.9cqi,8px)] font-semibold uppercase tracking-wide text-mint/75 @[28rem]:inline"
+              className={`hidden text-[clamp(6px,1.9cqi,8px)] font-semibold uppercase tracking-wide @[28rem]:inline ${xpGradeMutedClass(player.xpThis)}`}
               title={abbr("xp")}
             >
               xP
@@ -172,144 +172,164 @@ function Shirt({
 }
 
 function PitchMarkings() {
-  const netId = useId().replace(/:/g, "");
+  const uid = useId().replace(/:/g, "");
+  const glow = `${uid}-glow`;
+  const net = `${uid}-net`;
+  const clipTop = `${uid}-arc-t`;
+  const clipBot = `${uid}-arc-b`;
+
+  const fx = 36;
+  const fy = 48;
+  const fw = 608;
+  const fh = 954;
+  const cx = fx + fw / 2;
+  const hy = fy + fh / 2;
+  const s = fw / 68;
+  const penW = 40.32 * s;
+  const penD = 16.5 * s;
+  const sixW = 18.32 * s;
+  const sixD = 5.5 * s;
+  const rC = 9.15 * s;
+  const spot = 11 * s;
+  const corner = 1.15 * s;
+  const goalW = 7.32 * s;
+  const goalD = 26;
+  const penX = cx - penW / 2;
+  const sixX = cx - sixW / 2;
+  const goalX = cx - goalW / 2;
+
+  function lines(stroke: string, width: number) {
+    const p = {
+      fill: "none" as const,
+      stroke,
+      strokeWidth: width,
+      vectorEffect: "nonScalingStroke" as const,
+      strokeLinejoin: "miter" as const,
+    };
+    return (
+      <g>
+        <rect x={fx} y={fy} width={fw} height={fh} {...p} />
+        <line x1={fx} y1={hy} x2={fx + fw} y2={hy} {...p} />
+        <circle cx={cx} cy={hy} r={rC} {...p} />
+        <path
+          d={`M ${fx + corner} ${fy} A ${corner} ${corner} 0 0 1 ${fx} ${fy + corner}`}
+          {...p}
+        />
+        <path
+          d={`M ${fx + fw - corner} ${fy} A ${corner} ${corner} 0 0 0 ${fx + fw} ${fy + corner}`}
+          {...p}
+        />
+        <path
+          d={`M ${fx + corner} ${fy + fh} A ${corner} ${corner} 0 0 0 ${fx} ${fy + fh - corner}`}
+          {...p}
+        />
+        <path
+          d={`M ${fx + fw - corner} ${fy + fh} A ${corner} ${corner} 0 0 1 ${fx + fw} ${fy + fh - corner}`}
+          {...p}
+        />
+        <rect x={penX} y={fy} width={penW} height={penD} {...p} />
+        <rect x={sixX} y={fy} width={sixW} height={sixD} {...p} />
+        <circle cx={cx} cy={fy + spot} r={rC} clipPath={`url(#${clipTop})`} {...p} />
+        <rect x={penX} y={fy + fh - penD} width={penW} height={penD} {...p} />
+        <rect x={sixX} y={fy + fh - sixD} width={sixW} height={sixD} {...p} />
+        <circle
+          cx={cx}
+          cy={fy + fh - spot}
+          r={rC}
+          clipPath={`url(#${clipBot})`}
+          {...p}
+        />
+      </g>
+    );
+  }
+
   return (
     <svg
-      viewBox="0 0 100 160"
+      viewBox="0 0 680 1050"
       preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-0 h-full w-full"
+      className="pointer-events-none absolute inset-0 z-1 h-full w-full"
       aria-hidden
+      shapeRendering="geometricPrecision"
     >
       <defs>
-        <pattern id={netId} width="1.6" height="1.6" patternUnits="userSpaceOnUse">
+        <filter id={glow} x="-12%" y="-6%" width="124%" height="112%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" />
+        </filter>
+        <pattern id={net} width="3.2" height="3.2" patternUnits="userSpaceOnUse">
           <path
-            d="M 0 0 L 1.6 0 M 0 0 L 0 1.6"
-            stroke="rgba(255,255,255,0.35)"
-            strokeWidth="0.18"
+            d="M 0 0 L 3.2 0 M 0 0 L 0 3.2"
+            stroke="rgba(255,255,255,0.32)"
+            strokeWidth="0.4"
           />
         </pattern>
+        <clipPath id={clipTop}>
+          <rect x={penX - rC} y={fy + penD} width={penW + rC * 2} height={rC * 2} />
+        </clipPath>
+        <clipPath id={clipBot}>
+          <rect
+            x={penX - rC}
+            y={fy + fh - penD - rC * 2}
+            width={penW + rC * 2}
+            height={rC * 2}
+          />
+        </clipPath>
       </defs>
-      <rect
-        x="2.5"
-        y="4"
-        width="95"
-        height="152"
-        fill="none"
-        stroke="rgba(255,255,255,0.42)"
-        strokeWidth="0.7"
-      />
-      <path
-        d="M 2.5 8 A 4 4 0 0 1 6.5 4"
-        fill="none"
-        stroke="rgba(255,255,255,0.28)"
-        strokeWidth="0.35"
-      />
-      <path
-        d="M 97.5 8 A 4 4 0 0 0 93.5 4"
-        fill="none"
-        stroke="rgba(255,255,255,0.28)"
-        strokeWidth="0.35"
-      />
-      <path
-        d="M 2.5 152 A 4 4 0 0 0 6.5 156"
-        fill="none"
-        stroke="rgba(255,255,255,0.28)"
-        strokeWidth="0.35"
-      />
-      <path
-        d="M 97.5 152 A 4 4 0 0 1 93.5 156"
-        fill="none"
-        stroke="rgba(255,255,255,0.28)"
-        strokeWidth="0.35"
-      />
-      <line
-        x1="2.5"
-        y1="80"
-        x2="97.5"
-        y2="80"
-        stroke="rgba(255,255,255,0.36)"
-        strokeWidth="0.5"
-      />
+
+      <circle cx={cx} cy={hy} r={rC} fill="rgba(255,255,255,0.035)" stroke="none" />
+
+      <g filter={`url(#${glow})`} opacity="0.42">
+        {lines("rgba(255,255,255,0.95)", 3.4)}
+      </g>
+      {lines("rgba(255,255,255,0.82)", 1.35)}
+
+      <circle cx={cx} cy={hy} r={6.2} fill="rgba(255,255,255,0.92)" stroke="none" />
+      <circle cx={cx} cy={fy + spot} r={5.6} fill="rgba(255,255,255,0.92)" stroke="none" />
       <circle
-        cx="50"
-        cy="80"
-        r="11"
-        fill="none"
-        stroke="rgba(255,255,255,0.36)"
-        strokeWidth="0.5"
-      />
-      <circle cx="50" cy="80" r="0.9" fill="rgba(255,255,255,0.6)" />
-
-      <rect
-        x="24"
-        y="4"
-        width="52"
-        height="24"
-        fill="none"
-        stroke="rgba(255,255,255,0.36)"
-        strokeWidth="0.45"
-      />
-      <rect
-        x="36"
-        y="4"
-        width="28"
-        height="9"
-        fill="none"
-        stroke="rgba(255,255,255,0.42)"
-        strokeWidth="0.45"
-      />
-      <path
-        d="M 38 28 C 42 41 58 41 62 28"
-        fill="none"
-        stroke="rgba(255,255,255,0.3)"
-        strokeWidth="0.4"
+        cx={cx}
+        cy={fy + fh - spot}
+        r={5.6}
+        fill="rgba(255,255,255,0.92)"
+        stroke="none"
       />
 
-      <rect
-        x="24"
-        y="132"
-        width="52"
-        height="24"
-        fill="none"
-        stroke="rgba(255,255,255,0.36)"
-        strokeWidth="0.45"
-      />
-      <rect
-        x="36"
-        y="147"
-        width="28"
-        height="9"
-        fill="none"
-        stroke="rgba(255,255,255,0.42)"
-        strokeWidth="0.45"
-      />
-      <path
-        d="M 38 132 C 42 119 58 119 62 132"
-        fill="none"
-        stroke="rgba(255,255,255,0.3)"
-        strokeWidth="0.4"
-      />
-
-      <rect x="41.5" y="0.4" width="17" height="3.6" fill={`url(#${netId})`} />
-      <rect
-        x="41.5"
-        y="0.4"
-        width="17"
-        height="3.6"
-        fill="none"
-        stroke="rgba(255,255,255,0.92)"
-        strokeWidth="1.05"
-      />
-      <rect x="41.5" y="156" width="17" height="3.6" fill={`url(#${netId})`} />
-      <rect
-        x="41.5"
-        y="156"
-        width="17"
-        height="3.6"
-        fill="none"
-        stroke="rgba(255,255,255,0.92)"
-        strokeWidth="1.05"
-      />
+      <g>
+        <rect
+          x={goalX}
+          y={fy - goalD}
+          width={goalW}
+          height={goalD}
+          fill={`url(#${net})`}
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth="0.55"
+        />
+        <rect
+          x={goalX}
+          y={fy + fh}
+          width={goalW}
+          height={goalD}
+          fill={`url(#${net})`}
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth="0.55"
+        />
+        <path
+          d={`M ${goalX} ${fy - goalD} L ${goalX} ${fy} M ${goalX + goalW} ${fy - goalD} L ${goalX + goalW} ${fy} M ${goalX} ${fy - goalD} L ${goalX + goalW} ${fy - goalD}`}
+          fill="none"
+          stroke="rgba(255,255,255,0.94)"
+          strokeWidth="2.15"
+          vectorEffect="nonScalingStroke"
+          strokeLinejoin="round"
+          strokeLinecap="square"
+        />
+        <path
+          d={`M ${goalX} ${fy + fh} L ${goalX} ${fy + fh + goalD} M ${goalX + goalW} ${fy + fh} L ${goalX + goalW} ${fy + fh + goalD} M ${goalX} ${fy + fh + goalD} L ${goalX + goalW} ${fy + fh + goalD}`}
+          fill="none"
+          stroke="rgba(255,255,255,0.94)"
+          strokeWidth="2.15"
+          vectorEffect="nonScalingStroke"
+          strokeLinejoin="round"
+          strokeLinecap="square"
+        />
+      </g>
     </svg>
   );
 }
@@ -339,7 +359,7 @@ export function Pitch({
 
   function line(players: RankedPlayer[]) {
     return (
-      <div className="flex w-full min-w-0 max-w-full items-start justify-center gap-[clamp(0.12rem,1cqi,0.7rem)] px-[clamp(0.2rem,1.3cqi,0.75rem)]">
+      <div className="flex w-full min-w-0 max-w-full items-start justify-center gap-[clamp(0.08rem,0.7cqi,0.7rem)] px-[clamp(0.1rem,0.9cqi,0.75rem)]">
         {players.map((p) => (
           <Shirt
             key={p.id}
@@ -363,33 +383,39 @@ export function Pitch({
         <PitchMarkings />
 
         {gameweek ? (
-          <p className="absolute left-[2cqi] top-[2cqi] z-3 max-w-[70%] truncate rounded-full bg-black/55 px-[0.7em] py-0.5 text-[clamp(8px,2.2cqi,11px)] font-medium text-white/85">
+          <p className="absolute left-[2cqi] top-[2cqi] z-3 max-w-[70%] truncate rounded-full border border-white/15 bg-black/45 px-[0.75em] py-0.5 text-[clamp(8px,2.2cqi,11px)] font-medium text-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-[2px]">
             {abbr("gw")} {gameweek}
             {formation ? ` · ${formation}` : ""}
           </p>
         ) : formation ? (
-          <p className="absolute left-[2cqi] top-[2cqi] z-3 rounded-full bg-black/55 px-[0.7em] py-0.5 text-[clamp(8px,2.2cqi,11px)] font-medium text-white/85">
+          <p className="absolute left-[2cqi] top-[2cqi] z-3 rounded-full border border-white/15 bg-black/45 px-[0.75em] py-0.5 text-[clamp(8px,2.2cqi,11px)] font-medium text-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.28)] backdrop-blur-[2px]">
             {formation}
           </p>
         ) : null}
 
         <div className="relative z-2 flex min-h-0 flex-1 flex-col">
           <div className={`relative flex min-h-0 flex-1 ${ZONES[0].wash}`}>
-            <div className={`pointer-events-none absolute inset-x-0 top-0 h-[3px] ${ZONES[0].bar}`} />
+            <div
+              className={`pointer-events-none absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent to-transparent ${ZONES[0].hair}`}
+            />
             <ZoneLabel zone={ZONES[0]} />
             <div className="flex min-h-0 flex-1 items-center justify-center">
               {line(fwds)}
             </div>
           </div>
           <div className={`relative flex min-h-0 flex-1 ${ZONES[1].wash}`}>
-            <div className={`pointer-events-none absolute inset-x-0 top-0 h-[3px] ${ZONES[1].bar}`} />
+            <div
+              className={`pointer-events-none absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent to-transparent ${ZONES[1].hair}`}
+            />
             <ZoneLabel zone={ZONES[1]} />
             <div className="flex min-h-0 flex-1 items-center justify-center">
               {line(mids)}
             </div>
           </div>
           <div className={`relative flex min-h-0 flex-[2] flex-col ${ZONES[2].wash}`}>
-            <div className={`pointer-events-none absolute inset-x-0 top-0 h-[3px] ${ZONES[2].bar}`} />
+            <div
+              className={`pointer-events-none absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent to-transparent ${ZONES[2].hair}`}
+            />
             <ZoneLabel zone={ZONES[2]} />
             <div className="flex min-h-0 flex-1 items-center justify-center">
               {line(defs)}

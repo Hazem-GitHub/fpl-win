@@ -114,6 +114,7 @@ export default async function HomePage() {
             entryId={advice.entryId}
             teamName={advice.teamName}
             gameweekName={snapshot.upcoming.name}
+            gameweekId={snapshot.upcoming.id}
             deadline={deadline}
             freeTransfers={advice.freeTransfers}
             bestPlan={advice.bestPlan}
@@ -121,6 +122,9 @@ export default async function HomePage() {
             plans={advice.plans}
             chips={advice.chips}
             squad={advice.squad}
+            madeMoves={advice.madeMoves}
+            captainId={advice.captainId}
+            viceId={advice.viceId}
             formations={rankFormations(
               advice.bestPlan.lineup.xi.concat(advice.bestPlan.lineup.bench),
             ).map((row) => ({ formation: row.formation, xp: row.xp }))}

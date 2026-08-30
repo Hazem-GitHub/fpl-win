@@ -4,11 +4,11 @@ import { useAppState } from "@/components/AppState";
 import { ClubCrest } from "@/components/ClubCrest";
 import { IconLabel } from "@/components/Icon";
 import { Jump } from "@/components/Jump";
+import { LivePitch } from "@/components/LivePitch";
 import { fixturesHref, playersHref } from "@/lib/app-href";
 import type { MatchBoardData, MatchSide, MatchView } from "@/lib/matches";
 import { abbr } from "@/lib/abbr";
 import { kickoffLabel } from "@/lib/format";
-import { liveMatchClock } from "@/lib/live-clock";
 import { ArrowRight, BarChart3, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -18,36 +18,6 @@ function fdrClass(fdr: number) {
   if (fdr >= 4) return "bg-danger/15 text-danger";
   if (fdr <= 2) return "bg-accent/15 text-accent";
   return "bg-panel-2 text-muted";
-}
-
-function useNow(intervalMs: number, enabled: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!enabled) return;
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [enabled, intervalMs]);
-  return now;
-}
-
-function LiveMinute({
-  match,
-  now,
-}: {
-  match: MatchView;
-  now: number;
-}) {
-  const clock = liveMatchClock(match, now);
-  return (
-    <span
-      className="flex items-center gap-1.5 font-semibold text-accent"
-      title="Match clock from kickoff — FPL's own minute can lag"
-      suppressHydrationWarning
-    >
-      <span className="live-dot h-1.5 w-1.5 rounded-full bg-accent" />
-      {clock.label}
-    </span>
-  );
 }
 
 function ratingTone(rating: number) {
@@ -138,16 +108,60 @@ function SideBlock({
   );
 }
 
+function RatingRow({ match }: { match: MatchView }) {
+  return (
+    <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+      <div className="flex items-center gap-1">
+        <span
+          className={`tabular rounded px-1 py-px font-semibold ${ratingTone(match.home.rating)} bg-foreground/8`}
+          title="Club strength from FPL attack/defence ratings"
+        >
+          {match.home.rating.toFixed(1)}
+        </span>
+        <span
+          className={`rounded px-1 py-px ${fdrClass(match.home.fdr)}`}
+          title={`${abbr("fdr")} ${match.home.fdr}`}
+        >
+          {abbr("fdr")} {match.home.fdr}
+        </span>
+      </div>
+      {match.winner && match.winner !== "draw" && match.winRating != null ? (
+        <span className="font-semibold uppercase tracking-wide text-accent">
+          {match.status === "live" ? "Ahead" : "Win"} {match.winRating.toFixed(1)}
+        </span>
+      ) : match.winner === "draw" ? (
+        <span className="uppercase tracking-wide text-muted">Level</span>
+      ) : (
+        <span className="uppercase tracking-widest text-muted">
+          {match.eventName.replace("Gameweek", abbr("gw"))}
+        </span>
+      )}
+      <div className="flex items-center gap-1">
+        <span
+          className={`rounded px-1 py-px ${fdrClass(match.away.fdr)}`}
+          title={`${abbr("fdr")} ${match.away.fdr}`}
+        >
+          {abbr("fdr")} {match.away.fdr}
+        </span>
+        <span
+          className={`tabular rounded px-1 py-px font-semibold ${ratingTone(match.away.rating)} bg-foreground/8`}
+          title="Club strength from FPL attack/defence ratings"
+        >
+          {match.away.rating.toFixed(1)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function MatchCard({
   match,
   highlight,
   yours,
-  now = Date.now(),
 }: {
   match: MatchView;
   highlight?: boolean;
   yours?: boolean;
-  now?: number;
 }) {
   const live = match.status === "live";
   const done = match.status === "finished";
@@ -168,65 +182,72 @@ function MatchCard({
                 : "border-line bg-panel"
       }`}
     >
-      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-widest">
-        {live ? (
-          <LiveMinute match={match} now={now} />
-        ) : done ? (
-          <span className={homeWin || awayWin ? "font-semibold text-accent" : "text-muted"}>
-            {match.winner === "draw" ? "Draw" : "Full time"}
-          </span>
-        ) : (
-          <span className="text-muted">
-            <time dateTime={match.kickoff ?? undefined} suppressHydrationWarning>
-              {kickoffLabel(match.kickoff)}
-            </time>
-          </span>
-        )}
-        <span className="text-muted">
-          {match.eventName.replace("Gameweek", abbr("gw"))}
-        </span>
-      </div>
+      {live ? (
+        <>
+          <LivePitch match={match} />
+          <RatingRow match={match} />
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-widest">
+            {done ? (
+              <span className={homeWin || awayWin ? "font-semibold text-accent" : "text-muted"}>
+                {match.winner === "draw" ? "Draw" : "Full time"}
+              </span>
+            ) : (
+              <span className="text-muted">
+                <time dateTime={match.kickoff ?? undefined} suppressHydrationWarning>
+                  {kickoffLabel(match.kickoff)}
+                </time>
+              </span>
+            )}
+            <span className="text-muted">
+              {match.eventName.replace("Gameweek", abbr("gw"))}
+            </span>
+          </div>
 
-      <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <SideBlock
-          side={match.home}
-          align="left"
-          winner={homeWin}
-          muted={awayWin}
-        />
-        <div className="px-1 text-center">
-          {live || done ? (
-            <p className="tabular text-xl font-semibold leading-none">
-              <span className={homeWin ? "text-accent" : ""}>
-                {match.home.score ?? 0}
-              </span>
-              <span className="mx-1 text-muted">–</span>
-              <span className={awayWin ? "text-accent" : ""}>
-                {match.away.score ?? 0}
-              </span>
-            </p>
-          ) : (
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted">
-              vs
-            </p>
-          )}
-          {match.winner && match.winner !== "draw" && match.winRating != null ? (
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
-              {live ? "Ahead" : "Win"} {match.winRating.toFixed(1)}
-            </p>
-          ) : match.winner === "draw" ? (
-            <p className="mt-1 text-[10px] uppercase tracking-wide text-muted">
-              Level
-            </p>
-          ) : null}
-        </div>
-        <SideBlock
-          side={match.away}
-          align="right"
-          winner={awayWin}
-          muted={homeWin}
-        />
-      </div>
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <SideBlock
+              side={match.home}
+              align="left"
+              winner={homeWin}
+              muted={awayWin}
+            />
+            <div className="px-1 text-center">
+              {done ? (
+                <p className="tabular text-xl font-semibold leading-none">
+                  <span className={homeWin ? "text-accent" : ""}>
+                    {match.home.score ?? 0}
+                  </span>
+                  <span className="mx-1 text-muted">–</span>
+                  <span className={awayWin ? "text-accent" : ""}>
+                    {match.away.score ?? 0}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+                  vs
+                </p>
+              )}
+              {match.winner && match.winner !== "draw" && match.winRating != null ? (
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                  Win {match.winRating.toFixed(1)}
+                </p>
+              ) : match.winner === "draw" ? (
+                <p className="mt-1 text-[10px] uppercase tracking-wide text-muted">
+                  Level
+                </p>
+              ) : null}
+            </div>
+            <SideBlock
+              side={match.away}
+              align="right"
+              winner={awayWin}
+              muted={homeWin}
+            />
+          </div>
+        </>
+      )}
     </article>
   );
 }
@@ -258,7 +279,7 @@ function MatchBoardInner({
   const focusClubId =
     Number.isFinite(urlClub) && urlClub > 0 ? urlClub : app.focusClubId;
   const [board, setBoard] = useState(initial);
-  const liveNow = useNow(5_000, board.live.length > 0);
+  const [, setPollWake] = useState(0);
   const shouldPoll = needsPoll(board);
 
   useEffect(() => {
@@ -266,20 +287,69 @@ function MatchBoardInner({
   }, [initial]);
 
   useEffect(() => {
+    if (shouldPoll) return;
+    const id = window.setInterval(() => setPollWake(Date.now()), 20_000);
+    return () => window.clearInterval(id);
+  }, [shouldPoll]);
+
+  useEffect(() => {
     if (!shouldPoll) return;
-    const tick = async () => {
+    let stop = false;
+    let es: EventSource | null = null;
+    let pollId = 0;
+    let waitId = 0;
+    let opened = false;
+
+    const apply = (next: MatchBoardData) => {
+      if (!stop) setBoard(next);
+    };
+
+    const pollOnce = async () => {
       try {
         const res = await fetch("/api/matches", { cache: "no-store" });
         if (!res.ok) return;
-        const next = (await res.json()) as MatchBoardData;
-        setBoard(next);
+        apply((await res.json()) as MatchBoardData);
       } catch {
         /* keep the last good board */
       }
     };
-    void tick();
-    const id = window.setInterval(tick, 15_000);
-    return () => window.clearInterval(id);
+
+    const startPoll = () => {
+      if (pollId || stop) return;
+      void pollOnce();
+      pollId = window.setInterval(() => {
+        void pollOnce();
+      }, 4_000);
+    };
+
+    try {
+      es = new EventSource("/api/matches/stream");
+      es.onmessage = (ev) => {
+        opened = true;
+        if (waitId) window.clearTimeout(waitId);
+        try {
+          apply(JSON.parse(ev.data) as MatchBoardData);
+        } catch {
+          /* ignore a truncated frame */
+        }
+      };
+      waitId = window.setTimeout(() => {
+        if (!opened) {
+          es?.close();
+          es = null;
+          startPoll();
+        }
+      }, 8_000);
+    } catch {
+      startPoll();
+    }
+
+    return () => {
+      stop = true;
+      es?.close();
+      if (pollId) window.clearInterval(pollId);
+      if (waitId) window.clearTimeout(waitId);
+    };
   }, [shouldPoll]);
 
   const squadClubs = useMemo(() => new Set(app.squadClubIds), [app.squadClubIds]);
@@ -357,15 +427,18 @@ function MatchBoardInner({
               Live matches
             </h2>
             <span className="text-[10px] uppercase tracking-widest text-muted">
-              Updates every 15s
+              Live feed
             </span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="text-[10px] text-muted">
+            Simulated play from the live score and clock — not broadcast
+            tracking.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
             {[...live].sort((a, b) => rankMatch(a) - rankMatch(b)).map((match) => (
               <MatchCard
                 key={match.id}
                 match={match}
-                now={liveNow}
                 highlight={Boolean(
                   focusClubId &&
                     (match.home.id === focusClubId || match.away.id === focusClubId),

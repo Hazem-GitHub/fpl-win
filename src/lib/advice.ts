@@ -1,7 +1,20 @@
-import { fetchEntry, fetchEntryHistory, fetchPicksSafe } from "@/lib/fpl/client";
+import {
+  fetchEntry,
+  fetchEntryHistory,
+  fetchEntryTransfers,
+  fetchPicks,
+  fetchPicksWithFallback,
+} from "@/lib/fpl/client";
+import type { FplPick, FplTransfer } from "@/lib/fpl/types";
 import { MAX_FREE_TRANSFERS, sellPrice } from "@/lib/fpl/rules";
 import { chipAdvice, type ChipAdvice } from "@/lib/optimize/chips";
-import { adviseTransfers, inferFreeTransfers, type TransferPlan } from "@/lib/optimize/transfers";
+import {
+  adviseTransfers,
+  inferFreeTransfers,
+  type OwnedPlayer,
+  type TransferMove,
+  type TransferPlan,
+} from "@/lib/optimize/transfers";
 import type { EngineSnapshot } from "@/lib/snapshot";
 import type { RankedPlayer } from "@/lib/xp/model";
 
@@ -38,23 +51,18 @@ export type TeamAdvice = {
   sellingPrices: Record<number, number>;
   captainId: number | null;
   viceId: number | null;
+  madeMoves: TransferMove[];
   plans: TransferPlan[];
   bestPlan: TransferPlan;
   holdPlan: TransferPlan;
   chips: ChipAdvice[];
 };
 
-export async function adviseTeam(
-  entryId: number,
-  snapshot: EngineSnapshot,
-): Promise<TeamAdvice> {
-  const [entry, history] = await Promise.all([
-    fetchEntry(entryId),
-    fetchEntryHistory(entryId),
-  ]);
-  const picks = await fetchPicksSafe(entryId, snapshot.upcoming.id);
-  const byId = new Map(snapshot.players.map((p) => [p.id, p]));
-  const owned = picks.picks
+function ownedFromPicks(
+  picks: FplPick[],
+  byId: Map<number, RankedPlayer>,
+): OwnedPlayer[] {
+  return picks
     .map((pick) => {
       const player = byId.get(pick.element);
       if (!player) return null;
@@ -62,10 +70,148 @@ export async function adviseTeam(
       const selling = pick.selling_price ?? sellPrice(purchase, player.cost);
       return { player, sellingPrice: selling, purchasePrice: purchase };
     })
-    .filter((row): row is NonNullable<typeof row> => row != null);
+    .filter((row): row is OwnedPlayer => row != null);
+}
 
-  const bank = picks.entry_history?.bank ?? entry.last_deadline_bank ?? 0;
-  const freeTransfers = inferFreeTransfers(history.current, snapshot.upcoming.id);
+function applyTransfers(
+  owned: OwnedPlayer[],
+  transfers: FplTransfer[],
+  byId: Map<number, RankedPlayer>,
+): OwnedPlayer[] {
+  let next = [...owned];
+  for (const transfer of transfers) {
+    next = next.filter((row) => row.player.id !== transfer.element_out);
+    const player = byId.get(transfer.element_in);
+    if (!player) continue;
+    next.push({
+      player,
+      purchasePrice: transfer.element_in_cost,
+      sellingPrice: sellPrice(transfer.element_in_cost, player.cost),
+    });
+  }
+  return next;
+}
+
+function bankAfterTransfers(bank: number, transfers: FplTransfer[]): number {
+  return transfers.reduce(
+    (sum, transfer) =>
+      sum + transfer.element_out_cost - transfer.element_in_cost,
+    bank,
+  );
+}
+
+function inferTransfersFromPicks(
+  prev: FplPick[],
+  curr: FplPick[],
+  byId: Map<number, RankedPlayer>,
+  entryId: number,
+  event: number,
+): FplTransfer[] {
+  const currIds = new Set(curr.map((pick) => pick.element));
+  const prevIds = new Set(prev.map((pick) => pick.element));
+  const outs = prev.filter((pick) => !currIds.has(pick.element));
+  const inns = curr.filter((pick) => !prevIds.has(pick.element));
+  const outByPos = new Map<number, FplPick[]>();
+  const inByPos = new Map<number, FplPick[]>();
+  for (const pick of outs) {
+    const pos = byId.get(pick.element)?.position;
+    if (pos == null) continue;
+    const list = outByPos.get(pos) ?? [];
+    list.push(pick);
+    outByPos.set(pos, list);
+  }
+  for (const pick of inns) {
+    const pos = byId.get(pick.element)?.position;
+    if (pos == null) continue;
+    const list = inByPos.get(pos) ?? [];
+    list.push(pick);
+    inByPos.set(pos, list);
+  }
+  const inferred: FplTransfer[] = [];
+  for (const [pos, leaving] of outByPos) {
+    const arriving = [...(inByPos.get(pos) ?? [])];
+    arriving.sort((a, b) => (a.purchase_price ?? 0) - (b.purchase_price ?? 0));
+    const sortedOut = [...leaving].sort(
+      (a, b) => (a.selling_price ?? 0) - (b.selling_price ?? 0),
+    );
+    const n = Math.min(sortedOut.length, arriving.length);
+    for (let i = 0; i < n; i++) {
+      const out = sortedOut[i];
+      const inn = arriving[i];
+      inferred.push({
+        element_in: inn.element,
+        element_in_cost:
+          inn.purchase_price ?? byId.get(inn.element)?.cost ?? 0,
+        element_out: out.element,
+        element_out_cost: out.selling_price ?? 0,
+        entry: entryId,
+        event,
+        time: "",
+      });
+    }
+  }
+  return inferred;
+}
+
+function toMadeMoves(
+  transfers: FplTransfer[],
+  byId: Map<number, RankedPlayer>,
+): TransferMove[] {
+  const moves: TransferMove[] = [];
+  for (const transfer of transfers) {
+    const out = byId.get(transfer.element_out);
+    const inn = byId.get(transfer.element_in);
+    if (!out || !inn) continue;
+    moves.push({
+      out,
+      inn,
+      sell: transfer.element_out_cost,
+      buy: transfer.element_in_cost,
+      net: transfer.element_in_cost - transfer.element_out_cost,
+    });
+  }
+  return moves;
+}
+
+export async function adviseTeam(
+  entryId: number,
+  snapshot: EngineSnapshot,
+): Promise<TeamAdvice> {
+  const upcomingId = snapshot.upcoming.id;
+  const [entry, history, loaded, transfers] = await Promise.all([
+    fetchEntry(entryId),
+    fetchEntryHistory(entryId),
+    fetchPicksWithFallback(entryId, upcomingId),
+    fetchEntryTransfers(entryId).catch(() => [] as FplTransfer[]),
+  ]);
+  const byId = new Map(snapshot.players.map((p) => [p.id, p]));
+  let weekTransfers = transfers
+    .filter((row) => row.event === upcomingId || row.event > loaded.eventId)
+    .sort((a, b) => a.time.localeCompare(b.time));
+
+  let owned = ownedFromPicks(loaded.picks.picks, byId);
+  let bank = loaded.picks.entry_history?.bank ?? entry.last_deadline_bank ?? 0;
+  if (loaded.eventId !== upcomingId && weekTransfers.length > 0) {
+    owned = applyTransfers(owned, weekTransfers, byId);
+    bank = bankAfterTransfers(bank, weekTransfers);
+  }
+  if (weekTransfers.length === 0 && loaded.eventId === upcomingId && upcomingId > 1) {
+    try {
+      const previous = await fetchPicks(entryId, upcomingId - 1);
+      weekTransfers = inferTransfersFromPicks(
+        previous.picks,
+        loaded.picks.picks,
+        byId,
+        entryId,
+        upcomingId,
+      );
+    } catch {
+      weekTransfers = [];
+    }
+  }
+
+  const ftBefore = inferFreeTransfers(history.current, upcomingId);
+  const freeTransfers = Math.max(0, ftBefore - weekTransfers.length);
   const plans = adviseTransfers({
     players: snapshot.players,
     owned,
@@ -79,16 +225,29 @@ export async function adviseTeam(
     owned.map((o) => [o.player.id, o.sellingPrice]),
   );
   const chips = chipAdvice({
-    eventId: snapshot.upcoming.id,
+    eventId: upcomingId,
     plays: history.chips,
     lineup: bestPlan.lineup,
     squad: bestPlan.lineup.xi.concat(bestPlan.lineup.bench),
     bestPlan,
     holdPlan,
   });
-  const teamValue = picks.entry_history?.value ?? entry.last_deadline_value;
-  const past = history.current.filter((row) => row.event < snapshot.upcoming.id);
+  const teamValue = loaded.picks.entry_history?.value ?? entry.last_deadline_value;
+  const past = history.current.filter((row) => row.event < upcomingId);
   const lastGw = past.at(-1) ?? null;
+  const madeMoves = toMadeMoves(weekTransfers, byId);
+  const ownedIds = new Set(owned.map((row) => row.player.id));
+  let captainId = loaded.picks.picks.find((p) => p.is_captain)?.element ?? null;
+  let viceId = loaded.picks.picks.find((p) => p.is_vice_captain)?.element ?? null;
+  if (captainId != null && !ownedIds.has(captainId)) {
+    captainId = viceId != null && ownedIds.has(viceId) ? viceId : null;
+  }
+  if (viceId != null && !ownedIds.has(viceId)) {
+    viceId = null;
+  }
+  if (captainId != null && viceId === captainId) {
+    viceId = null;
+  }
 
   return {
     entryId,
@@ -119,8 +278,9 @@ export async function adviseTeam(
     },
     squad,
     sellingPrices,
-    captainId: picks.picks.find((p) => p.is_captain)?.element ?? null,
-    viceId: picks.picks.find((p) => p.is_vice_captain)?.element ?? null,
+    captainId,
+    viceId,
+    madeMoves,
     plans,
     bestPlan,
     holdPlan,

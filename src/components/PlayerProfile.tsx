@@ -15,7 +15,7 @@ import { ClubCrest } from "@/components/ClubCrest";
 import { PlayerTile, PosChip } from "@/components/PlayerTile";
 import { abbr } from "@/lib/abbr";
 import { Abbr } from "@/components/Abbr";
-import { formatPct, formatPrice, formatXp, formTrend } from "@/lib/format";
+import { formatPct, formatPrice, formatXp, formTrend, xpGradeClass, xpGradeSurfaceClass } from "@/lib/format";
 import type { RecentMatch, RecentTotals, PlayerRecent } from "@/lib/player/recent";
 import type { FixtureSlice, RankedPlayer } from "@/lib/xp/model";
 import { BarChart3, CalendarDays, Wrench, X } from "lucide-react";
@@ -137,7 +137,8 @@ export function PlayerProfile({
             label={<Abbr of="thisGw" />}
             value={formatXp(player.xpThis)}
             hint={fdrHint(player.fdrThis)}
-            accent
+            valueClass={xpGradeClass(player.xpThis)}
+            surfaceClass={xpGradeSurfaceClass(player.xpThis)}
           />
           <HeroStat
             label="Next 5"
@@ -310,23 +311,29 @@ function HeroStat({
   hint,
   accent,
   tone,
+  valueClass,
+  surfaceClass,
 }: {
   label: ReactNode;
   value: string;
   hint?: string;
   accent?: boolean;
   tone?: "accent" | "danger";
+  valueClass?: string;
+  surfaceClass?: string;
 }) {
   const color =
-    accent || tone === "accent"
+    valueClass ??
+    (accent || tone === "accent"
       ? "text-accent"
       : tone === "danger"
         ? "text-danger"
-        : "";
+        : "");
   return (
     <div
       className={`min-w-0 overflow-hidden rounded-xl border px-2 py-2.5 sm:px-2.5 ${
-        accent ? "border-accent/40 bg-accent/10" : "border-line bg-panel-2"
+        surfaceClass ??
+        (accent ? "border-accent/40 bg-accent/10" : "border-line bg-panel-2")
       }`}
     >
       <p className={`tabular text-xl font-semibold leading-none ${color}`}>{value}</p>

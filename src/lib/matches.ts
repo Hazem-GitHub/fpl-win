@@ -201,10 +201,16 @@ export function buildMatchBoard(
   };
 }
 
-export const getMatchBoard = cache(async (): Promise<MatchBoardData> => {
+export async function loadMatchBoard(opts?: {
+  fresh?: boolean;
+}): Promise<MatchBoardData> {
   const [bootstrap, fixtures] = await Promise.all([
     fetchBootstrap(),
-    fetchFixturesLive(),
+    fetchFixturesLive(opts?.fresh ? 0 : 3_000),
   ]);
   return buildMatchBoard(fixtures, bootstrap.teams, bootstrap.events);
+}
+
+export const getMatchBoard = cache(async (): Promise<MatchBoardData> => {
+  return loadMatchBoard();
 });

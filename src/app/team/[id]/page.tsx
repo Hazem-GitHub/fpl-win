@@ -70,6 +70,10 @@ export default async function TeamPage({
       formations={formations}
       chips={advice.chips}
       matches={matches}
+      squad={advice.squad}
+      madeMoves={advice.madeMoves}
+      captainId={advice.captainId}
+      viceId={advice.viceId}
     />
   );
 }

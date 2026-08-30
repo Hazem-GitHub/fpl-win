@@ -83,35 +83,60 @@ body {
 }
 
 .pitch {
+  isolation: isolate;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 14%),
+    radial-gradient(120% 55% at 50% -8%, rgba(255, 255, 255, 0.18), transparent 52%),
+    radial-gradient(90% 42% at 50% 108%, rgba(0, 12, 6, 0.45), transparent 58%),
+    radial-gradient(ellipse at 50% 50%, transparent 42%, rgba(4, 18, 10, 0.38) 100%),
     repeating-linear-gradient(
       180deg,
-      #1f7a44 0 12.5%,
-      #176638 12.5% 25%
+      #1a8f4c 0 6.25%,
+      #148044 6.25% 12.5%
     );
 }
 
+.pitch::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.09;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.pitch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 16%, transparent 86%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.16), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.16));
+}
+
 .pitch-field {
-  min-height: 36rem;
-  height: min(clamp(36rem, 145cqi, 60rem), calc(100dvh - 8rem));
+  min-height: 524px;
+  height: min(clamp(524px, 145cqi, 60rem), calc(100dvh - 8rem));
   padding-bottom: 0.5rem;
 }
 
 .pitch-compact > .pitch-field {
-  min-height: 32rem;
-  height: clamp(32rem, 108cqi, 52rem);
+  min-height: 524px;
+  height: clamp(524px, 108cqi, 52rem);
 }
 
 @container (max-width: 44rem) {
   .pitch-field {
-    min-height: 24rem;
-    height: min(clamp(24rem, 165cqi, 42rem), calc(100dvh - 9rem));
+    min-height: 524px;
+    height: min(clamp(524px, 175cqi, 44rem), calc(100dvh - 8rem));
   }
 
   .pitch-compact > .pitch-field {
-    min-height: 24rem;
-    height: clamp(24rem, 155cqi, 36rem);
+    min-height: 524px;
+    height: clamp(524px, 165cqi, 38rem);
   }
 }
 
@@ -305,6 +330,50 @@ body {
   animation: week-row-wash 1.35s ease-out both;
 }
 
+.week-card-out .week-mini-shot {
+  background: color-mix(in srgb, var(--danger) 28%, #1c1012);
+}
+.week-card-out .week-mini-plate {
+  background: color-mix(in srgb, var(--danger) 46%, #14090a);
+  color: #f4f7f4;
+}
+.week-card-in .week-mini-shot {
+  background: color-mix(in srgb, var(--accent) 26%, #0f1812);
+}
+.week-card-in .week-mini-plate {
+  background: color-mix(in srgb, var(--accent) 40%, #0c1610);
+  color: #f4f7f4;
+}
+.week-card-cap .week-mini-shot {
+  background: color-mix(in srgb, var(--warn) 22%, #1a160c);
+}
+.week-card-cap .week-mini-plate {
+  background: color-mix(in srgb, var(--warn) 34%, #14110a);
+  color: #f4f7f4;
+}
+
+html.light .week-card-out .week-mini-shot {
+  background: color-mix(in srgb, var(--danger) 16%, #f7ecec);
+}
+html.light .week-card-out .week-mini-plate {
+  background: color-mix(in srgb, var(--danger) 12%, #fff6f6);
+  color: var(--foreground);
+}
+html.light .week-card-in .week-mini-shot {
+  background: color-mix(in srgb, var(--accent) 16%, #eaf6ec);
+}
+html.light .week-card-in .week-mini-plate {
+  background: color-mix(in srgb, var(--accent) 12%, #f3fbf4);
+  color: var(--foreground);
+}
+html.light .week-card-cap .week-mini-shot {
+  background: color-mix(in srgb, var(--warn) 18%, #f7f1dc);
+}
+html.light .week-card-cap .week-mini-plate {
+  background: color-mix(in srgb, var(--warn) 14%, #fff8e8);
+  color: var(--foreground);
+}
+
 .week-card-out {
   animation-name: week-out;
   animation-duration: 1.05s;
@@ -437,6 +506,12 @@ body {
 
 .live-dot {
   animation: live-pulse 1.2s ease-in-out infinite;
+}
+
+.live-pitch {
+  aspect-ratio: 105 / 68;
+  min-height: 9.75rem;
+  background: #148044;
 }
 
 .hide-scroll {

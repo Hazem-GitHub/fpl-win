@@ -6,6 +6,45 @@ export function formatXp(value: number, digits = 1): string {
   return value.toFixed(digits);
 }
 
+/** This-gameweek player xP on the rounded 1-decimal shown value. */
+export type XpGrade = "violet" | "blue" | "high" | "mid" | "low";
+
+export function xpGrade(value: number): XpGrade {
+  const shown = Math.round(value * 10) / 10;
+  if (shown > 10) return "violet";
+  if (shown >= 8) return "blue";
+  if (shown > 5) return "high";
+  if (shown >= 2) return "mid";
+  return "low";
+}
+
+export function xpGradeClass(value: number): string {
+  const grade = xpGrade(value);
+  if (grade === "violet") return "text-violet-400";
+  if (grade === "blue") return "text-sky-400";
+  if (grade === "high") return "text-mint";
+  if (grade === "mid") return "text-orange-400";
+  return "text-danger";
+}
+
+export function xpGradeMutedClass(value: number): string {
+  const grade = xpGrade(value);
+  if (grade === "violet") return "text-violet-400/75";
+  if (grade === "blue") return "text-sky-400/75";
+  if (grade === "high") return "text-mint/75";
+  if (grade === "mid") return "text-orange-400/75";
+  return "text-danger/75";
+}
+
+export function xpGradeSurfaceClass(value: number): string {
+  const grade = xpGrade(value);
+  if (grade === "violet") return "border-violet-400/40 bg-violet-400/10";
+  if (grade === "blue") return "border-sky-400/40 bg-sky-400/10";
+  if (grade === "high") return "border-accent/40 bg-accent/10";
+  if (grade === "mid") return "border-orange-400/40 bg-orange-400/10";
+  return "border-danger/40 bg-danger/10";
+}
+
 export type FormTrend = "hot" | "up" | "flat" | "down" | "cold";
 
 /** FPL form is pts/game over the last ~4 gameweeks. */

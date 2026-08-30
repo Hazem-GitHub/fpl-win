@@ -5,12 +5,13 @@ import type {
   FplEntryHistory,
   FplFixture,
   FplPicks,
+  FplTransfer,
 } from "./types";
 
 const FPL_BASE = "https://fantasy.premierleague.com/api";
 const TTL_MS: Record<string, number> = {
   default: 60 * 60 * 1000,
-  entry: 2 * 60 * 1000,
+  entry: 15 * 1000,
 };
 
 type CacheEntry<T> = { at: number; value: T };
@@ -57,9 +58,9 @@ export async function fetchFixtures(): Promise<FplFixture[]> {
 }
 
 /** Fresh scores for the match board — short cache, separate from the xP snapshot. */
-export async function fetchFixturesLive(): Promise<FplFixture[]> {
+export async function fetchFixturesLive(ttlMs = 3_000): Promise<FplFixture[]> {
   return fplGet<FplFixture[]>("/fixtures/", {
-    ttlMs: 10_000,
+    ttlMs,
     cacheKey: "/fixtures/#live",
   });
 }
@@ -91,10 +92,29 @@ export async function fetchPicksSafe(
   entryId: number,
   eventId: number,
 ): Promise<FplPicks> {
+  const loaded = await fetchPicksWithFallback(entryId, eventId);
+  return loaded.picks;
+}
+
+export async function fetchPicksWithFallback(
+  entryId: number,
+  eventId: number,
+): Promise<{ picks: FplPicks; eventId: number }> {
   try {
-    return await fetchPicks(entryId, eventId);
+    return { picks: await fetchPicks(entryId, eventId), eventId };
   } catch {
     if (eventId <= 1) throw new Error("Could not load this FPL team");
-    return fetchPicks(entryId, eventId - 1);
+    return {
+      picks: await fetchPicks(entryId, eventId - 1),
+      eventId: eventId - 1,
+    };
   }
+}
+
+export async function fetchEntryTransfers(
+  entryId: number,
+): Promise<FplTransfer[]> {
+  return fplGet<FplTransfer[]>(`/entry/${entryId}/transfers/`, {
+    ttlMs: 15_000,
+  });
 }

@@ -13,7 +13,8 @@ import { formatPrice, formatXp, kickoffLabel } from "@/lib/format";
 import type { MatchBoardData } from "@/lib/matches";
 import type { ChipAdvice } from "@/lib/optimize/chips";
 import type { LineupResult } from "@/lib/optimize/lineup";
-import type { TransferPlan } from "@/lib/optimize/transfers";
+import type { TransferMove, TransferPlan } from "@/lib/optimize/transfers";
+import type { RankedPlayer } from "@/lib/xp/model";
 import { formatTeamId, rememberTeamId } from "@/lib/team-id";
 import {
   ArrowLeftRight,
@@ -55,6 +56,10 @@ export function TeamWorkspace({
   formations,
   chips,
   matches,
+  squad,
+  madeMoves,
+  captainId,
+  viceId,
 }: {
   entryId: number;
   manager: string;
@@ -70,6 +75,10 @@ export function TeamWorkspace({
   formations: LineupResult[];
   chips: ChipAdvice[];
   matches: MatchBoardData;
+  squad: RankedPlayer[];
+  madeMoves: TransferMove[];
+  captainId: number | null;
+  viceId: number | null;
 }) {
   const [tab, setTab] = useState<TabId>("play");
   const [switchTeam, setSwitchTeam] = useState(false);
@@ -253,6 +262,11 @@ export function TeamWorkspace({
           entryId={entryId}
           teamName={teamName}
           chips={chips}
+          squad={squad}
+          madeMoves={madeMoves}
+          captainId={captainId}
+          viceId={viceId}
+          gameweekId={gameweekId}
         />
       ) : null}
 

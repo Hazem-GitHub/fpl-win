@@ -4,7 +4,7 @@ import { PlayerProfile } from "@/components/PlayerProfile";
 import { PlayerTile, PosChip } from "@/components/PlayerTile";
 import { useAppState } from "@/components/AppState";
 import { abbr } from "@/lib/abbr";
-import { formatPrice, formatXp } from "@/lib/format";
+import { formatPrice, formatXp, xpGradeClass } from "@/lib/format";
 import type { RankedPlayer } from "@/lib/xp/model";
 import { useState } from "react";
 
@@ -86,8 +86,11 @@ function LeadCard({
 }) {
   const fx = fixtureText(player);
   const captain = kind === "captain";
-  const stat = captain ? formatXp(player.xpThis) : formatXp(player.xpNext5);
+  const statValue = captain ? player.xpThis : player.xpNext5;
+  const stat = formatXp(statValue);
   const statHint = captain ? abbr("xpGw") : `${abbr("xp")} / 5`;
+  const capDouble = player.xpThis * 2;
+  const statColor = captain ? xpGradeClass(player.xpThis) : featured ? "text-accent" : "text-foreground";
 
   return (
     <button
@@ -129,15 +132,15 @@ function LeadCard({
         </span>
       </span>
       <span className="shrink-0 text-right">
-        <span className={`block tabular text-lg font-semibold leading-none ${featured ? "text-accent" : "text-foreground"}`}>
+        <span className={`block tabular text-lg font-semibold leading-none ${statColor}`}>
           {stat}
         </span>
         <span className="text-[10px] tracking-wide text-muted">
           {captain && featured ? "as captain ×2" : statHint}
         </span>
         {captain && featured ? (
-          <span className="mt-0.5 block tabular text-xs font-semibold text-accent">
-            {formatXp(player.xpThis * 2)}
+          <span className={`mt-0.5 block tabular text-xs font-semibold ${xpGradeClass(capDouble)}`}>
+            {formatXp(capDouble)}
           </span>
         ) : null}
       </span>

@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ElementTypeId, FplTeam } from "@/lib/fpl/types";
 import { POS_SHORT } from "@/lib/fpl/rules";
-import { formatPct, formatPrice, formatXp } from "@/lib/format";
+import { formatPct, formatPrice, formatXp, xpGradeClass } from "@/lib/format";
 import type { RankedPlayer } from "@/lib/xp/model";
 import { ClubCrest } from "./ClubCrest";
 import { FixtureStrip } from "./FixtureStrip";
@@ -616,7 +616,7 @@ function PlayerTableInner({
                     </div>
                   </td>
                   <td className="tabular px-3 py-2">{formatPrice(p.cost)}</td>
-                  <td className="tabular px-3 py-2 font-medium text-accent">
+                  <td className={`tabular px-3 py-2 font-medium ${xpGradeClass(p.xpThis)}`}>
                     {formatXp(p.xpThis)}
                   </td>
                   <td className="tabular px-3 py-2">{formatXp(p.xpNext3)}</td>
