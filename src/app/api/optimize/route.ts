@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     excludedIds?: number[];
     budget?: number;
     horizon?: 3 | 5;
+    preferMip?: boolean;
   };
   const snapshot = await getSnapshot();
   const plan = await buildSquad({
