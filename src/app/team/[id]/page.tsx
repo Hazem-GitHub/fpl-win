@@ -3,8 +3,6 @@ import { TeamIdForm } from "@/components/TeamIdForm";
 import { TeamWorkspace } from "@/components/TeamWorkspace";
 import { adviseTeam } from "@/lib/advice";
 import { deadlineLabel } from "@/lib/format";
-import { getMatchBoard } from "@/lib/matches";
-import { rankFormations } from "@/lib/optimize/lineup";
 import { getSnapshot } from "@/lib/snapshot";
 import { RotateCcw } from "lucide-react";
 import Link from "next/link";
@@ -30,7 +28,6 @@ export default async function TeamPage({
   }
 
   const snapshot = await getSnapshot();
-  const matches = await getMatchBoard();
   let advice;
   try {
     advice = await adviseTeam(entryId, snapshot);
@@ -46,9 +43,6 @@ export default async function TeamPage({
   }
 
   const { bestPlan, holdPlan, plans } = advice;
-  const formations = rankFormations(
-    bestPlan.lineup.xi.concat(bestPlan.lineup.bench),
-  );
 
   return (
     <TeamWorkspace
@@ -67,9 +61,11 @@ export default async function TeamPage({
       bestPlan={bestPlan}
       holdPlan={holdPlan}
       plans={plans}
-      formations={formations}
+      picked={advice.picked}
+      picksLive={advice.picksLive}
       chips={advice.chips}
-      matches={matches}
+      chipPlays={advice.chipPlays}
+      activeChip={advice.activeChip}
       squad={advice.squad}
       madeMoves={advice.madeMoves}
       captainId={advice.captainId}

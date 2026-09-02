@@ -1,4 +1,4 @@
-export type TeamTab = "play" | "xi" | "matches" | "chips";
+export type TeamTab = "play" | "xi" | "chips";
 export type RankingsView = "gw" | "next5" | "captain" | "value" | "diff";
 
 export function parseIdList(raw: string | null | undefined): number[] {

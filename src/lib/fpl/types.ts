@@ -19,6 +19,7 @@ export type FplElement = {
   news: string;
   chance_of_playing_this_round: number | null;
   chance_of_playing_next_round: number | null;
+  news_added?: string | null;
   minutes: number;
   starts: number;
   goals_scored: number;
@@ -136,6 +137,18 @@ export type FplFixture = {
   started?: boolean;
   minutes?: number;
   provisional_start_time?: boolean;
+  stats?: FplFixtureStat[];
+};
+
+export type FplFixtureStatValue = {
+  value: number;
+  element: number;
+};
+
+export type FplFixtureStat = {
+  identifier: string;
+  h: FplFixtureStatValue[];
+  a: FplFixtureStatValue[];
 };
 
 export type FplPick = {

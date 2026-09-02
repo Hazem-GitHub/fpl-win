@@ -92,6 +92,26 @@ export function kickoffLabel(iso: string | null): string {
   return cairoClock(iso);
 }
 
+/** Relative time to kickoff. Pass `now` from the client so it can tick. */
+export function kickoffFromNow(iso: string | null, now = Date.now()): string {
+  if (!iso) return "Time TBC";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "Time TBC";
+  const ms = t - now;
+  if (ms <= 0) return "Kickoff";
+  const mins = Math.max(1, Math.round(ms / 60_000));
+  if (mins < 60) return `in ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const remM = mins % 60;
+  if (hours < 24) {
+    return remM === 0 ? `in ${hours}h` : `in ${hours}h ${remM}m`;
+  }
+  const days = Math.floor(hours / 24);
+  const remH = hours % 24;
+  if (remH === 0) return days === 1 ? "in 1 day" : `in ${days} days`;
+  return `in ${days}d ${remH}h`;
+}
+
 export function playerPhoto(code: number): string {
   return `https://resources.premierleague.com/premierleague/photos/players/110x140/p${code}.png`;
 }

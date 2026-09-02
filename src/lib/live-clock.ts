@@ -14,7 +14,7 @@ const MAX_ADDED_S = MAX_ADDED * 60;
 const LAG_IGNORE_S = LAG_IGNORE * 60;
 const LAG_CATCH_S = LAG_CATCH * 60;
 
-export type LivePhase = "first" | "ht" | "second" | "added";
+export type LivePhase = "first" | "ht" | "second" | "added" | "ft";
 
 export type LiveClock = {
   minute: number;
@@ -93,6 +93,7 @@ function pad2(n: number): string {
 
 function formatClock(playSec: number, phase: LivePhase): string {
   if (phase === "ht") return "HT";
+  if (phase === "ft") return "FT";
   const minute = Math.floor(playSec / 60);
   const second = Math.floor(playSec % 60);
   const sec = pad2(second);
@@ -108,7 +109,7 @@ function phaseAfterCatch(
   estimated: LivePhase,
   fpl: number,
 ): LivePhase {
-  if (estimated === "ht") return "ht";
+  if (estimated === "ht" || estimated === "ft") return estimated;
   const minute = playSec / 60;
   if (minute >= 90 || fpl >= 90) return "added";
   if (fpl > HALF) return "second";

@@ -28,10 +28,7 @@ export default async function BuilderPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Squad builder</h1>
           <p className="mt-1 text-sm text-muted">
-            15 players, £100.0m, max three per club. Optimizes 5-{abbr("gw")}{" "}
-            {abbr("xp")} then picks the {snapshot.upcoming.name} {abbr("xi")} and
-            captain. Lock anyone you refuse
-            to sell; ban anyone you refuse to own.
+            15 players, £100.0m, max three per club. Lock or ban, then pick the {abbr("xi")}.
           </p>
         </div>
       </div>

@@ -1,6 +1,12 @@
-import { loadMatchBoard, type MatchBoardData } from "@/lib/matches";
+import { loadMatchBoard, type MatchBoardData, type MatchView } from "@/lib/matches";
 
 type Listener = (board: MatchBoardData) => void;
+
+function sheetStamp(match: MatchView): string {
+  const pts = (side: MatchView["sheet"]["home"]) =>
+    side.reduce((sum, player) => sum + player.sheetPts * 10 + player.bps, 0);
+  return `${pts(match.sheet?.home ?? [])}:${pts(match.sheet?.away ?? [])}`;
+}
 
 const listeners = new Set<Listener>();
 let last: MatchBoardData | null = null;
@@ -13,7 +19,7 @@ function stamp(board: MatchBoardData): string {
   const parts: string[] = [String(board.live.length)];
   const push = (m: MatchBoardData["live"][number]) => {
     parts.push(
-      `${m.id}:${m.status}:${m.minutes}:${m.home.score ?? ""}:${m.away.score ?? ""}`,
+      `${m.id}:${m.status}:${m.minutes}:${m.home.score ?? ""}:${m.away.score ?? ""}:${m.stats?.length ?? 0}:${sheetStamp(m)}`,
     );
   };
   for (const m of board.live) push(m);

@@ -6,34 +6,19 @@ import { Icon } from "./Icon";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { PlayerProfile } from "@/components/PlayerProfile";
 import {
-  builderHref,
-  fixturesHref,
   playersHref,
-  teamHref,
 } from "@/lib/app-href";
 import { Abbr } from "@/components/Abbr";
-import { ABBR, abbr, posAbbr, posLong } from "@/lib/abbr";
-import { formatPrice, formatXp, formTrend, xpGradeClass, xpGradeMutedClass } from "@/lib/format";
-import type { ChipAdvice } from "@/lib/optimize/chips";
+import { ABBR, abbr } from "@/lib/abbr";
+import { formatPrice, formatXp, xpGradeClass } from "@/lib/format";
 import type { TransferMove, TransferPlan } from "@/lib/optimize/transfers";
 import type { RankedPlayer } from "@/lib/xp/model";
+import { horizonXp, pickAlts, planKey, planMovesLabel } from "@/lib/week-plan";
 import {
   BarChart3,
-  CalendarDays,
   Check,
-  LayoutGrid,
-  Shirt,
-  Sparkles,
-  Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-
-const POS_CHIP: Record<number, string> = {
-  1: "bg-violet-500 text-white",
-  2: "bg-sky-500 text-white",
-  3: "bg-amber-400 text-zinc-900",
-  4: "bg-rose-500 text-white",
-};
 
 function fixtureChip(player: RankedPlayer) {
   const fx = player.fixtures[0];
@@ -46,31 +31,6 @@ function fixtureChip(player: RankedPlayer) {
         ? "bg-accent/15 text-accent"
         : "bg-panel-2 text-muted";
   return { text, className, title: `${abbr("fdr")} ${fx.fdr}` };
-}
-
-function formMark(form: number, ppg: number) {
-  const trend = formTrend(form);
-  const mark =
-    trend === "hot"
-      ? "▲▲"
-      : trend === "up"
-        ? "▲"
-        : trend === "down"
-          ? "▼"
-          : trend === "cold"
-            ? "▼▼"
-            : "–";
-  const className =
-    trend === "hot" || trend === "up"
-      ? "text-mint"
-      : trend === "down" || trend === "cold"
-        ? "text-danger"
-        : "text-muted";
-  const label =
-    ppg > 0
-      ? `Last 4 gameweeks: ${form.toFixed(1)} pts/game (season ${ppg.toFixed(1)} ${abbr("ppg")})`
-      : `Last 4 gameweeks: ${form.toFixed(1)} pts/game`;
-  return { mark, className, label };
 }
 
 function signedPrice(tenths: number): string {
@@ -145,82 +105,6 @@ function DoneBadge({ children = "Done on FPL" }: { children?: ReactNode }) {
       {children}
     </span>
   );
-}
-
-function planKey(plan: TransferPlan): string {
-  if (plan.moves.length === 0) return "hold";
-  return plan.moves
-    .map((m) => `${m.out.id}:${m.inn.id}`)
-    .sort()
-    .join("|");
-}
-
-function horizonXp(plan: TransferPlan): number {
-  return plan.moves.reduce((sum, m) => sum + (m.inn.xpNext5 - m.out.xpNext5), 0);
-}
-
-function pickAlts(
-  plans: TransferPlan[],
-  best: TransferPlan,
-  hold: TransferPlan,
-): TransferPlan[] {
-  const bestK = planKey(best);
-  const others = plans.filter((p) => planKey(p) !== bestK);
-  const out: TransferPlan[] = [];
-  const seen = new Set<string>();
-
-  function add(plan: TransferPlan | undefined) {
-    if (!plan) return;
-    const k = planKey(plan);
-    if (k === bestK || seen.has(k)) return;
-    seen.add(k);
-    out.push(plan);
-  }
-
-  if (best.moves.length > 0) add(hold);
-
-  if (best.hits > 0) {
-    add(
-      others
-        .filter((p) => p.hits === 0 && p.moves.length > 0)
-        .sort((a, b) => b.netXp - a.netXp)[0],
-    );
-  }
-
-  const bestH = horizonXp(best);
-  add(
-    [...others]
-      .filter((p) => horizonXp(p) > bestH + 0.8)
-      .sort((a, b) => horizonXp(b) - horizonXp(a))[0],
-  );
-
-  add(
-    [...others]
-      .filter((p) => p.bank >= best.bank + 10)
-      .sort((a, b) => b.bank - a.bank || b.netXp - a.netXp)[0],
-  );
-
-  add(
-    others.find((p) => {
-      if (Math.abs(p.netXp - best.netXp) >= 0.2 || p.hits !== best.hits) return false;
-      const bestOuts = best.moves
-        .map((m) => m.out.id)
-        .sort()
-        .join(",");
-      const outs = p.moves
-        .map((m) => m.out.id)
-        .sort()
-        .join(",");
-      return outs !== bestOuts;
-    }),
-  );
-
-  for (const p of others.sort((a, b) => b.netXp - a.netXp)) {
-    if (out.length >= 3) break;
-    add(p);
-  }
-
-  return out.slice(0, 3);
 }
 
 function planPitch(
@@ -321,11 +205,6 @@ function planPitch(
   };
 }
 
-function planMovesLabel(plan: TransferPlan): string {
-  if (plan.moves.length === 0) return plan.label;
-  return plan.moves.map((m) => `${m.out.webName} → ${m.inn.webName}`).join(" · ");
-}
-
 function flagNote(player: RankedPlayer): string | null {
   if (player.status === "a") return null;
   if (player.news.trim()) return player.news.replace(/\.$/, "");
@@ -336,8 +215,8 @@ function flagNote(player: RankedPlayer): string | null {
   return "flagged";
 }
 
-function whyTransfer(move: TransferMove): { headline: string; points: string[] } {
-  const { out, inn, sell, buy, net } = move;
+function whyTransfer(move: TransferMove): string {
+  const { out, inn } = move;
   const gw = inn.xpThis - out.xpThis;
   const horizon = inn.xpNext5 - out.xpNext5;
   const outFlag = flagNote(out);
@@ -345,68 +224,26 @@ function whyTransfer(move: TransferMove): { headline: string; points: string[] }
   const inFdr = inn.fdrThis ?? 3;
   const outFdr = out.fdrThis ?? 3;
   const outMins = Math.round(out.pMinutes * 100);
-  const inMins = Math.round(inn.pMinutes * 100);
-  const bankDelta = -net;
 
-  let headline: string;
   if (outFlag && !inFlag) {
-    headline = `Move ${out.webName} out (${outFlag}) for a fit ${inn.webName}.`;
-  } else if (out.pMinutes < 0.45 && inn.pMinutes >= 0.7 && gw > 0) {
-    headline = `${out.webName} is not starting (${outMins}% mins). ${inn.webName} is, and is ${signedXp(gw)} ${abbr("xp")} this ${abbr("gw")}.`;
-  } else if (gw >= 2) {
-    headline = `${inn.webName} is ${signedXp(gw)} ${abbr("xp")} better this week than ${out.webName}.`;
-  } else if (horizon >= 5 && horizon > gw + 1) {
-    headline = `${inn.webName} is the 5-${abbr("gw")} pick (${signedXp(horizon)}) — this ${abbr("gw")} is secondary.`;
-  } else if (inFdr <= 2 && outFdr >= 4) {
-    headline = `Swap a hard ${out.webName} fixture for ${inn.webName}'s easier match.`;
-  } else if (gw > 0) {
-    headline = `Upgrade ${out.webName} to ${inn.webName} for ${signedXp(gw)} ${abbr("xp")} this week.`;
-  } else {
-    headline = `Take ${inn.webName} over ${out.webName} for the run, not this ${abbr("gw")}.`;
+    return `Move ${out.webName} out (${outFlag}) for a fit ${inn.webName}.`;
   }
-
-  const points: string[] = [];
-  if (bankDelta > 0) {
-    points.push(
-      `Frees ${formatPrice(bankDelta)}: sell ${formatPrice(sell)} → buy ${formatPrice(buy)}`,
-    );
-  } else if (bankDelta < 0) {
-    points.push(
-      `Costs ${formatPrice(-bankDelta)} from the bank: sell ${formatPrice(sell)} → buy ${formatPrice(buy)}`,
-    );
-  } else {
-    points.push(`Even money: sell ${formatPrice(sell)}, buy ${formatPrice(buy)}`);
+  if (out.pMinutes < 0.45 && inn.pMinutes >= 0.7 && gw > 0) {
+    return `${out.webName} is not starting (${outMins}% mins). ${inn.webName} is, and is ${signedXp(gw)} ${abbr("xp")} this ${abbr("gw")}.`;
   }
-  if (Math.abs(gw) >= 0.15) {
-    points.push(
-      `${formatXp(out.xpThis)} → ${formatXp(inn.xpThis)} ${abbr("xp")} this ${abbr("gw")} (${signedXp(gw)})`,
-    );
+  if (gw >= 2) {
+    return `${inn.webName} is ${signedXp(gw)} ${abbr("xp")} better this week than ${out.webName}.`;
   }
-  if (Math.abs(horizon) >= 0.4) {
-    points.push(`${signedXp(horizon)} over the next 5 gameweeks`);
+  if (horizon >= 5 && horizon > gw + 1) {
+    return `${inn.webName} is the 5-${abbr("gw")} pick (${signedXp(horizon)}) — this ${abbr("gw")} is secondary.`;
   }
-  if (Math.abs(inn.pMinutes - out.pMinutes) >= 0.12) {
-    points.push(
-      inn.pMinutes > out.pMinutes
-        ? `Minutes: ${outMins}% → ${inMins}% (safer start)`
-        : `Minutes risk: ${outMins}% → ${inMins}%`,
-    );
+  if (inFdr <= 2 && outFdr >= 4) {
+    return `Swap a hard ${out.webName} fixture for ${inn.webName}'s easier match.`;
   }
-  if (inn.form - out.form >= 1.2) {
-    points.push(
-      `Form ${out.form.toFixed(1)} → ${inn.form.toFixed(1)} pts/game last 4 gameweeks`,
-    );
-  } else if (out.form - inn.form >= 1.2) {
-    points.push("Incoming is colder — the fixture is the case");
+  if (gw > 0) {
+    return `Upgrade ${out.webName} to ${inn.webName} for ${signedXp(gw)} ${abbr("xp")} this week.`;
   }
-  if (inFdr <= 2 && inFdr < outFdr) points.push("Easier fixture this week");
-  if (outFdr >= 4 && inFdr < outFdr) points.push("Avoiding a tough match");
-  if (inFlag) points.push(`Flag on incoming: ${inFlag}`);
-  if (outFlag && !headline.toLowerCase().includes("out (")) {
-    points.push(`Getting the flag out: ${outFlag}`);
-  }
-
-  return { headline, points: points.slice(0, 5) };
+  return `Take ${inn.webName} over ${out.webName} for the run, not this ${abbr("gw")}.`;
 }
 
 function MiniCard({
@@ -416,7 +253,6 @@ function MiniCard({
   delayMs,
   onOpen,
   priceTenths,
-  priceKind,
 }: {
   player: RankedPlayer;
   tone: "out" | "in" | "cap";
@@ -424,11 +260,8 @@ function MiniCard({
   delayMs?: number;
   onOpen: (player: RankedPlayer) => void;
   priceTenths?: number;
-  priceKind?: "sell" | "buy";
 }) {
-  const pos = player.positionShort === "GKP" ? "GK" : player.positionShort;
   const fx = fixtureChip(player);
-  const form = formMark(player.form, player.pointsPerGame);
   const ring =
     tone === "in"
       ? "ring-accent/55"
@@ -446,7 +279,7 @@ function MiniCard({
       onClick={() => onOpen(player)}
       className={`week-mini group w-[6.6rem] shrink-0 text-left sm:w-[7.2rem] ${anim}`}
       style={{ "--swap-delay": `${delayMs ?? 0}ms` } as CSSProperties}
-      aria-label={`${player.webName} profile, ${formatXp(player.xpThis)} ${abbr("xp")}, form ${player.form.toFixed(1)}`}
+      aria-label={`${player.webName}, ${formatXp(player.xpThis)} ${abbr("xp")}, ${fx.text}`}
     >
       <div className="relative mx-auto w-fit">
         <div
@@ -488,39 +321,16 @@ function MiniCard({
       </div>
 
       <div className={`week-mini-plate mt-1.5 overflow-hidden rounded-md text-center shadow-sm ring-1 ${ring}`}>
-        <div className="flex items-center justify-between gap-1 px-1 pt-1">
-          <span
-            className={`rounded px-1 py-px text-[9px] font-bold uppercase leading-none ${POS_CHIP[player.position]}`}
-            title={posLong(pos)}
-          >
-            {pos}
-          </span>
-          <span className="flex min-w-0 items-center gap-0.5">
-            <span className={`tabular text-[11px] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
-              {formatXp(player.xpThis)}
-            </span>
-            <span
-              className={`text-[7px] font-semibold uppercase tracking-wide ${xpGradeMutedClass(player.xpThis)}`}
-              title={abbr("xp")}
-            >
-              xP
-            </span>
-            <span
-              className={`text-[8px] font-bold leading-none ${form.className}`}
-              title={form.label}
-            >
-              {form.mark}
-            </span>
-          </span>
-        </div>
+        <p className={`tabular px-1 pt-1 text-[11px] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
+          {formatXp(player.xpThis)}
+        </p>
         <p className="truncate px-1 pt-1 text-[12px] font-semibold leading-tight text-foreground group-hover:text-mint" suppressHydrationWarning>
           {player.webName}
         </p>
-        <p className="tabular px-1 text-[11px] font-bold leading-none text-foreground">
-          {formatPrice(priceTenths ?? player.cost)}
-        </p>
-        {priceKind ? (
-          <p className="text-[9px] uppercase tracking-wide text-muted">{priceKind}</p>
+        {priceTenths != null ? (
+          <p className="tabular px-1 text-[11px] font-bold leading-none text-foreground">
+            {formatPrice(priceTenths)}
+          </p>
         ) : null}
         <p
           className={`mx-1 mb-1 mt-1 inline-block rounded px-1 py-px text-[10px] ${fx.className}`}
@@ -560,9 +370,6 @@ function TransferArrow({
       >
         {signedXp(xpDelta)}
       </span>
-      <span className="text-[9px] tracking-wide text-muted">
-        <Abbr of="xpGw" />
-      </span>
       <span
         className={`mt-0.5 tabular text-[10px] font-semibold ${
           bankDelta >= 0 ? "text-accent" : "text-danger"
@@ -570,150 +377,6 @@ function TransferArrow({
       >
         {signedPrice(bankDelta)}
       </span>
-    </div>
-  );
-}
-
-function WeekPath({
-  entryId,
-  bestPlan,
-  chips,
-  compact,
-}: {
-  entryId?: number;
-  bestPlan: TransferPlan;
-  chips?: ChipAdvice[];
-  compact?: boolean;
-}) {
-  const app = useAppState();
-  const planned = bestPlan.lineup.xi.concat(bestPlan.lineup.bench);
-  const outIds = bestPlan.moves.map((move) => move.out.id);
-  const inIds = bestPlan.moves.map((move) => move.inn.id);
-  const chip =
-    chips?.find((row) => row.recommend) ?? chips?.find((row) => row.urgency !== "none");
-  const captain = bestPlan.lineup.captain;
-
-  function seedBuilder() {
-    app.applyPlanToBuilder({
-      keepIds: planned.map((p) => p.id),
-      outIds,
-      inIds,
-    });
-    app.setFormation(bestPlan.lineup.formation);
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {compact && entryId ? (
-        <Jump href={teamHref(entryId, "play")} icon={Shirt} tone="accent">
-          Open full plan
-        </Jump>
-      ) : null}
-      {entryId ? (
-        <Jump
-          href={teamHref(entryId, "xi", bestPlan.lineup.formation)}
-          icon={LayoutGrid}
-          onClick={() => {
-            app.setFormation(bestPlan.lineup.formation);
-            app.setTeamTab("xi");
-          }}
-        >
-          <Abbr of="xi" extra={bestPlan.lineup.formation} />
-        </Jump>
-      ) : null}
-      <Jump
-        href={playersHref({
-          view: "captain",
-          player: captain.id,
-          pos: captain.position,
-        })}
-        icon={BarChart3}
-        onClick={() =>
-          app.setRankings({
-            view: "captain",
-            pos: captain.position,
-            playerId: captain.id,
-            q: captain.webName,
-          })
-        }
-      >
-        Captain board
-      </Jump>
-      <Jump
-        href={fixturesHref(captain.teamId)}
-        icon={CalendarDays}
-        onClick={() => app.setFocusClub(captain.teamId)}
-      >
-        {captain.teamShort} fixture
-      </Jump>
-      <Jump
-        href={builderHref({
-          lock: planned
-            .filter((p) => !outIds.includes(p.id))
-            .map((p) => p.id)
-            .concat(inIds),
-          ban: outIds,
-        })}
-        icon={Wrench}
-        onClick={seedBuilder}
-      >
-        {bestPlan.moves.length ? "Try plan in builder" : "Squad in builder"}
-      </Jump>
-      {entryId && chip ? (
-        <Jump
-          href={teamHref(entryId, "chips")}
-          icon={Sparkles}
-          onClick={() => app.setTeamTab("chips")}
-        >
-          {chip.recommend ? `Play ${chip.label}` : chip.label}
-        </Jump>
-      ) : null}
-    </div>
-  );
-}
-
-function MoveJumps({ move }: { move: TransferMove }) {
-  const app = useAppState();
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      <Jump
-        href={playersHref({
-          pos: move.inn.position,
-          player: move.inn.id,
-          q: move.inn.webName,
-        })}
-        icon={BarChart3}
-        onClick={() =>
-          app.setRankings({
-            pos: move.inn.position,
-            playerId: move.inn.id,
-            q: move.inn.webName,
-            view: null,
-          })
-        }
-      >
-        {move.inn.webName} in rankings
-      </Jump>
-      <Jump
-        href={fixturesHref(move.inn.teamId)}
-        icon={CalendarDays}
-        onClick={() => app.setFocusClub(move.inn.teamId)}
-      >
-        {move.inn.teamShort} fixtures
-      </Jump>
-      <Jump
-        href={builderHref({ lock: [move.inn.id], ban: [move.out.id] })}
-        icon={Wrench}
-        onClick={() =>
-          app.applyPlanToBuilder({
-            keepIds: app.squadPlayerIds,
-            outIds: [move.out.id],
-            inIds: [move.inn.id],
-          })
-        }
-      >
-        Lock {move.inn.webName}
-      </Jump>
     </div>
   );
 }
@@ -732,7 +395,6 @@ function TransferRow({
   const why = whyTransfer(move);
   const bankDelta = -move.net;
   const gwDelta = move.inn.xpThis - move.out.xpThis;
-  const horizon = move.inn.xpNext5 - move.out.xpNext5;
   return (
     <div
       className={`week-swap-row rounded-lg border px-3 py-3 ${
@@ -748,7 +410,6 @@ function TransferRow({
           delayMs={delay}
           onOpen={onOpen}
           priceTenths={move.sell}
-          priceKind="sell"
         />
         <TransferArrow
           xpDelta={gwDelta}
@@ -761,68 +422,12 @@ function TransferRow({
           delayMs={delay + 320}
           onOpen={onOpen}
           priceTenths={move.buy}
-          priceKind="buy"
         />
-        <div className="min-w-48 flex-1 text-xs leading-5">
+        <div className="min-w-40 flex-1 text-sm leading-5">
           <p className="flex flex-wrap items-center gap-2 font-medium">
-            {move.out.webName} → {move.inn.webName}
+            {why}
             {done ? <DoneBadge /> : null}
           </p>
-          <p className="text-muted">
-            {formatPrice(move.sell)} sell → {formatPrice(move.buy)} buy
-            {` · ${posAbbr(move.out.positionShort)} → ${posAbbr(move.inn.positionShort)}`}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span
-              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                gwDelta >= 0
-                  ? "bg-accent/15 text-accent"
-                  : "bg-danger/15 text-danger"
-              }`}
-            >
-              {signedXp(gwDelta)} this {abbr("gw")}
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                horizon >= 0
-                  ? "bg-accent/10 text-accent"
-                  : "bg-danger/10 text-danger"
-              }`}
-            >
-              {signedXp(horizon)} / 5 {abbr("gw")}
-            </span>
-            <span
-              className={`rounded-full px-2 py-0.5 tabular font-semibold ${
-                bankDelta >= 0
-                  ? "bg-accent/10 text-accent"
-                  : "bg-danger/10 text-danger"
-              }`}
-            >
-              {signedPrice(bankDelta)} bank
-            </span>
-          </div>
-          {done ? (
-            <p className="mt-3 text-xs text-accent">
-              Already on your FPL squad for this deadline.
-            </p>
-          ) : (
-            <div className="mt-3 border-t border-line pt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                Why this transfer
-              </p>
-              <p className="mt-1 text-sm font-medium leading-5 text-foreground">
-                {why.headline}
-              </p>
-              {why.points.length > 0 ? (
-                <ul className="mt-1.5 space-y-0.5 text-foreground/80">
-                  {why.points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              ) : null}
-              <MoveJumps move={move} />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -840,12 +445,12 @@ export function WeekDecision({
   entryId,
   teamName,
   squad,
-  chips,
   madeMoves,
   captainId,
   viceId,
   gameweekId,
-  compact,
+  selectedKey,
+  onSelectPlan,
 }: {
   gameweekName: string;
   deadline: string | null;
@@ -857,17 +462,22 @@ export function WeekDecision({
   entryId?: number;
   teamName?: string;
   squad?: RankedPlayer[];
-  chips?: ChipAdvice[];
   madeMoves?: TransferMove[];
   captainId?: number | null;
   viceId?: number | null;
   gameweekId?: number;
-  compact?: boolean;
+  selectedKey?: string;
+  onSelectPlan?: (key: string) => void;
 }) {
   const app = useAppState();
   const [open, setOpen] = useState<RankedPlayer | null>(null);
   const recommendedKey = planKey(bestPlan);
-  const [activeKey, setActiveKey] = useState(recommendedKey);
+  const [internalKey, setInternalKey] = useState(recommendedKey);
+  const activeKey = selectedKey ?? internalKey;
+  function setActiveKey(key: string) {
+    onSelectPlan?.(key);
+    if (selectedKey === undefined) setInternalKey(key);
+  }
   const alts = useMemo(
     () => pickAlts(plans ?? [], bestPlan, holdPlan),
     [plans, bestPlan, holdPlan],
@@ -942,7 +552,6 @@ export function WeekDecision({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-3 py-2.5 sm:px-4">
         <div>
           <h2 className="text-sm font-semibold">
-            {compact && teamName ? `${teamName} · ` : ""}
             This week · {gameweekName}
           </h2>
           <p className="mt-0.5 text-xs text-muted">
@@ -994,13 +603,8 @@ export function WeekDecision({
 
       {options.length > 1 ? (
         <div className="border-b border-line px-3 py-3 sm:px-4">
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
+          <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
             This week&apos;s options
-          </p>
-          <p className="mb-2.5 text-xs leading-5 text-muted">
-            Recommended is the highest net {abbr("xp")}. Pick another when you want to
-            skip a hit, keep cash, or wait on news — the transfers below follow your
-            choice.
           </p>
           <div
             className="grid gap-2 sm:grid-cols-2"
@@ -1081,27 +685,15 @@ export function WeekDecision({
         </div>
       ) : null}
 
-      <div className="border-b border-line px-3 py-2.5 sm:px-4">
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
-          Across the app
-        </p>
-        <WeekPath
-          entryId={entryId}
-          bestPlan={plan}
-          chips={chips}
-          compact={compact}
-        />
-      </div>
-
       <div className="space-y-4 p-3 sm:p-4">
         {hold && doneMoves.length === 0 ? (
           <p className="text-sm leading-6 text-foreground/90">
-            Keep the squad. Holding projects{" "}
+            Hold.{" "}
             <strong className="tabular text-accent">{formatXp(plan.rawXp)}</strong>{" "}
-            {abbr("xp")}
+            {abbr("xp")} projected
             {showingAlt
-              ? `, ${signedXp(plan.netXp - bestPlan.netXp)} vs the recommended plan.`
-              : ". Spend the free transfer only if news breaks before the deadline."}
+              ? ` · ${signedXp(plan.netXp - bestPlan.netXp)} vs recommended.`
+              : "."}
           </p>
         ) : (
           <div className="space-y-4">
@@ -1134,12 +726,12 @@ export function WeekDecision({
             ))}
             {hold && doneMoves.length > 0 ? (
               <p className="text-sm leading-6 text-foreground/90">
-                No further transfers. Holding projects{" "}
+                No further transfers.{" "}
                 <strong className="tabular text-accent">{formatXp(plan.rawXp)}</strong>{" "}
-                {abbr("xp")}
+                {abbr("xp")} projected
                 {showingAlt
-                  ? `, ${signedXp(plan.netXp - bestPlan.netXp)} vs the recommended plan.`
-                  : ". Spend the free transfer only if news breaks before the deadline."}
+                  ? ` · ${signedXp(plan.netXp - bestPlan.netXp)} vs recommended.`
+                  : "."}
               </p>
             ) : null}
           </div>
@@ -1171,28 +763,20 @@ export function WeekDecision({
                 app.setFocusPlayer(player.id);
               }}
             />
-            <div className="text-sm leading-6">
+            <div className="min-w-40 text-sm leading-6">
               <p>
-                Captain <strong>{captain.webName}</strong>{" "}
-                <span className={`tabular ${xpGradeClass(captain.xpThis)}`}>
-                  {formatXp(captain.xpThis)} {abbr("xp")}
-                </span>
-                {" — doubles to "}
-                <span className={`tabular font-medium ${xpGradeClass(captain.xpThis * 2)}`}>
+                Doubles to{" "}
+                <span className={`tabular font-semibold ${xpGradeClass(captain.xpThis * 2)}`}>
                   {formatXp(captain.xpThis * 2)}
                 </span>
-                .
+                {captainDone ? null : " · set this as C"}
               </p>
               <p className="text-xs text-muted">
-                Vice {vice.webName} (
-                <span className={xpGradeClass(vice.xpThis)}>
-                  {formatXp(vice.xpThis)} {abbr("xp")}
-                </span>
-                )
-                {viceDone ? " · already set on FPL" : ""}
+                Vice {vice.webName}
+                {viceDone ? " · set" : ""}
                 {captain.news ? ` · ${captain.news}` : ""}
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-2">
                 <Jump
                   href={playersHref({
                     view: "captain",
@@ -1210,13 +794,6 @@ export function WeekDecision({
                   }
                 >
                   Compare captains
-                </Jump>
-                <Jump
-                  href={fixturesHref(captain.teamId)}
-                  icon={CalendarDays}
-                  onClick={() => app.setFocusClub(captain.teamId)}
-                >
-                  {captain.teamShort} this week
                 </Jump>
               </div>
             </div>

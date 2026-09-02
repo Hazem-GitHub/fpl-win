@@ -16,16 +16,25 @@ const CHIP_MARK: Record<FplChipName, { icon: LucideIcon; tone: string }> = {
   "3xc": { icon: Crown, tone: "bg-warn/20 text-warn" },
 };
 
-export function ChipPanel({ chips }: { chips: ChipAdvice[] }) {
+export function ChipPanel({
+  chips,
+  appliedChip,
+}: {
+  chips: ChipAdvice[];
+  appliedChip?: FplChipName | null;
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {chips.map((chip) => {
         const mark = CHIP_MARK[chip.chip];
+        const applied = appliedChip === chip.chip;
         return (
           <article
             key={chip.chip}
             className={`rounded-xl border bg-panel p-3 ${
-              chip.recommend ? "border-accent/50 bg-accent/5" : urgencyClass[chip.urgency]
+              applied || chip.recommend
+                ? "border-accent/50 bg-accent/5"
+                : urgencyClass[chip.urgency]
             }`}
           >
             <div className="flex items-center justify-between gap-2">
@@ -38,13 +47,17 @@ export function ChipPanel({ chips }: { chips: ChipAdvice[] }) {
                 <h3 className="text-sm font-semibold">{chip.label}</h3>
               </span>
               <span className="text-[10px] uppercase tracking-widest">
-                {!chip.available
-                  ? "Used"
-                  : chip.recommend
-                    ? "Play"
-                    : chip.urgency === "now"
-                      ? "Expiring"
-                      : "Hold"}
+                {chip.usedThisWeek
+                  ? "Played"
+                  : applied
+                    ? "Applied"
+                    : !chip.available
+                      ? "Used"
+                      : chip.recommend
+                        ? "Play"
+                        : chip.urgency === "now"
+                          ? "Expiring"
+                          : "Hold"}
               </span>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted">{chip.reason}</p>

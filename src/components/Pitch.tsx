@@ -1,8 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { formatPrice, formatXp, formTrend, xpGradeClass, xpGradeMutedClass } from "@/lib/format";
-import { abbr, posLong } from "@/lib/abbr";
+import { formatXp, xpGradeClass } from "@/lib/format";
+import { abbr } from "@/lib/abbr";
 import type { RankedPlayer } from "@/lib/xp/model";
 import { PlayerPhoto } from "./PlayerPhoto";
 import { PlayerProfile } from "./PlayerProfile";
@@ -46,44 +46,13 @@ function ZoneLabel({ zone }: { zone: (typeof ZONES)[number] }) {
   );
 }
 
-const POS_CHIP: Record<number, string> = {
-  1: "bg-violet-500 text-white",
-  2: "bg-sky-500 text-white",
-  3: "bg-amber-400 text-zinc-900",
-  4: "bg-rose-500 text-white",
-};
-
-function FormArrow({ form, ppg }: { form: number; ppg: number }) {
-  const trend = formTrend(form);
-  const mark =
-    trend === "hot"
-      ? "▲▲"
-      : trend === "up"
-        ? "▲"
-        : trend === "down"
-          ? "▼"
-          : trend === "cold"
-            ? "▼▼"
-            : "–";
-  const color =
-    trend === "hot" || trend === "up"
-      ? "text-mint"
-      : trend === "down" || trend === "cold"
-        ? "text-danger"
-        : "text-white/45";
-  const label =
-    ppg > 0
-      ? `Last 4 gameweeks: ${form.toFixed(1)} pts/game (season ${ppg.toFixed(1)} ${abbr("ppg")})`
-      : `Last 4 gameweeks: ${form.toFixed(1)} pts/game`;
-  return (
-    <span
-      className={`ml-px text-[8px] font-bold leading-none ${color}`}
-      title={label}
-      aria-label={label}
-    >
-      {mark}
-    </span>
-  );
+function fixtureMark(player: RankedPlayer) {
+  const fx = player.fixtures[0];
+  if (!fx) return { text: "Blank", className: "text-white/45", title: "No fixture" };
+  const text = `${fx.opponentShort} ${fx.home ? "H" : "A"}`;
+  const className =
+    fx.fdr >= 4 ? "text-rose-300" : fx.fdr <= 2 ? "text-mint" : "text-white/80";
+  return { text, className, title: `${abbr("fdr")} ${fx.fdr}` };
 }
 
 function Shirt({
@@ -99,7 +68,7 @@ function Shirt({
   onOpen: (player: RankedPlayer) => void;
   bench?: boolean;
 }) {
-  const pos = player.positionShort === "GKP" ? "GK" : player.positionShort;
+  const fx = fixtureMark(player);
   return (
     <button
       type="button"
@@ -109,7 +78,7 @@ function Shirt({
           ? "w-[min(24%,4.4rem)] shrink-0 @[28rem]:w-[min(18%,5rem)] @[40rem]:w-[min(18%,5.75rem)]"
           : "w-0 max-w-[4.75rem] flex-[1_1_0%] @[28rem]:max-w-[5.1rem] @[40rem]:max-w-[5.75rem]"
       }`}
-      aria-label={`${player.webName} profile, ${formatXp(player.xpThis)} ${abbr("xp")}, form ${player.form.toFixed(1)}`}
+      aria-label={`${player.webName}, ${formatXp(player.xpThis)} ${abbr("xp")}, ${fx.text}`}
     >
       <div className="relative mx-auto w-[78%] @[32rem]:w-[72%]">
         <div className="relative transition duration-150 group-hover:scale-105 group-focus-visible:scale-105">
@@ -138,33 +107,17 @@ function Shirt({
       </div>
 
       <div className="mt-[0.2em] overflow-hidden rounded-[0.28em] bg-black/70 text-center shadow-sm ring-1 ring-white/15">
-        <div className="flex items-center justify-center gap-px px-[0.22em] pt-[0.16em] @[28rem]:justify-between">
-          <span
-            title={posLong(pos)}
-            className={`hidden rounded px-[0.22em] py-px text-[clamp(5px,1.9cqi,10px)] font-bold uppercase leading-none @[28rem]:inline ${POS_CHIP[player.position]}`}
-          >
-            {pos}
-          </span>
-          <span className="flex min-w-0 items-center gap-px">
-            <span className={`tabular text-[clamp(7px,2.45cqi,13px)] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
-              {formatXp(player.xpThis)}
-            </span>
-            <span
-              className={`hidden text-[clamp(6px,1.9cqi,8px)] font-semibold uppercase tracking-wide @[28rem]:inline ${xpGradeMutedClass(player.xpThis)}`}
-              title={abbr("xp")}
-            >
-              xP
-            </span>
-            <span className="hidden @[32rem]:inline">
-              <FormArrow form={player.form ?? 0} ppg={player.pointsPerGame ?? 0} />
-            </span>
-          </span>
-        </div>
+        <p className={`tabular px-[0.22em] pt-[0.16em] text-[clamp(7px,2.45cqi,13px)] font-bold leading-none ${xpGradeClass(player.xpThis)}`}>
+          {formatXp(player.xpThis)}
+        </p>
         <p className="truncate px-[0.22em] pt-[0.08em] text-[clamp(7px,2.35cqi,13px)] font-semibold leading-tight text-white group-hover:text-mint">
           {player.webName}
         </p>
-        <p className="px-[0.22em] pb-[0.16em] pt-[0.02em] tabular text-[clamp(7px,2.4cqi,14px)] font-bold leading-none text-white">
-          {formatPrice(player.cost)}
+        <p
+          className={`px-[0.22em] pb-[0.16em] pt-[0.02em] text-[clamp(6px,2.1cqi,11px)] font-bold uppercase leading-none ${fx.className}`}
+          title={fx.title}
+        >
+          {fx.text}
         </p>
       </div>
     </button>

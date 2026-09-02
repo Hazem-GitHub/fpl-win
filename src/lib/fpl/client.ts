@@ -84,8 +84,11 @@ export async function fetchEntryHistory(
 export async function fetchPicks(
   entryId: number,
   eventId: number,
+  opts?: { ttlMs?: number },
 ): Promise<FplPicks> {
-  return fplGet<FplPicks>(`/entry/${entryId}/event/${eventId}/picks/`);
+  return fplGet<FplPicks>(`/entry/${entryId}/event/${eventId}/picks/`, {
+    ttlMs: opts?.ttlMs ?? 5_000,
+  });
 }
 
 export async function fetchPicksSafe(

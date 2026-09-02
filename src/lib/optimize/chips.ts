@@ -10,6 +10,7 @@ export type ChipAdvice = {
   label: string;
   available: boolean;
   usedThisHalf: boolean;
+  usedThisWeek: boolean;
   recommend: boolean;
   urgency: "none" | "soon" | "now";
   reason: string;
@@ -37,13 +38,17 @@ export function chipAdvice(opts: {
   squad: RankedPlayer[];
   bestPlan: TransferPlan;
   holdPlan: TransferPlan;
+  activeChip?: FplChipName | null;
 }): ChipAdvice[] {
-  const { eventId, plays, lineup, squad, bestPlan, holdPlan } = opts;
+  const { eventId, plays, lineup, squad, bestPlan, holdPlan, activeChip } = opts;
   const last = lastChipEvent(eventId);
   const gwsLeft = last - eventId + 1;
   const halfEndSoon = gwsLeft <= 2;
 
-  const available = (chip: FplChipName) => !usedInHalf(plays, chip, eventId);
+  const playedThisWeek = (chip: FplChipName) =>
+    activeChip === chip || plays.some((play) => play.name === chip && play.event === eventId);
+  const available = (chip: FplChipName) =>
+    !playedThisWeek(chip) && !usedInHalf(plays, chip, eventId);
   const lockedEarly = (chip: FplChipName) =>
     (chip === "wildcard" || chip === "freehit") && eventId < 2;
 
@@ -77,7 +82,7 @@ export function chipAdvice(opts: {
     !lockedEarly("wildcard") &&
     (hitCost >= 8 || injured >= 4 || (halfEndSoon && (hitCost >= 4 || injured >= 2)));
 
-  const rows: Array<Omit<ChipAdvice, "label">> = [
+  const rows: Array<Omit<ChipAdvice, "label" | "usedThisWeek">> = [
     {
       chip: "3xc",
       available: available("3xc") && !lockedEarly("3xc"),
@@ -134,5 +139,17 @@ export function chipAdvice(opts: {
     },
   ];
 
-  return rows.map((row) => ({ ...row, label: LABELS[row.chip] }));
+  return rows.map((row) => {
+    const usedThisWeek = playedThisWeek(row.chip);
+    return {
+      ...row,
+      label: LABELS[row.chip],
+      usedThisWeek,
+      usedThisHalf: usedThisWeek || row.usedThisHalf,
+      available: usedThisWeek ? false : row.available,
+      recommend: usedThisWeek ? false : row.recommend,
+      urgency: usedThisWeek ? "none" : row.urgency,
+      reason: usedThisWeek ? "Played this gameweek." : row.reason,
+    };
+  });
 }

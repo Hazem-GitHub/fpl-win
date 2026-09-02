@@ -7,7 +7,6 @@ import { AppStateProvider } from "@/components/AppState";
 import {
   BarChart3,
   CalendarDays,
-  ClipboardList,
   Shirt,
   Wrench,
 } from "lucide-react";
@@ -15,15 +14,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/", label: "Briefing", icon: ClipboardList },
+  { href: "/team", label: "My team", icon: Shirt },
   { href: "/fixtures", label: "Fixtures", icon: CalendarDays },
   { href: "/players", label: "Rankings", icon: BarChart3 },
   { href: "/builder", label: "Builder", icon: Wrench },
-  { href: "/team", label: "My team", icon: Shirt },
 ] as const;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -41,7 +38,7 @@ export function AppShell({
     <div className="flex min-h-full min-w-0 flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-background/92 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:h-16 sm:gap-6 sm:px-4">
-          <Link href="/" className="flex shrink-0" aria-label="Pitch home">
+          <Link href="/team" className="flex shrink-0" aria-label="Pitch home">
             <BrandLockup />
           </Link>
           <nav className="hidden min-w-0 items-center gap-0.5 text-sm md:flex">
@@ -89,7 +86,7 @@ export function AppShell({
         className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-background/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
         aria-label="Primary"
       >
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-4">
           {links.map((link) => {
             const active = isActive(pathname, link.href);
             return (

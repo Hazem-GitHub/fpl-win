@@ -509,9 +509,239 @@ html.light .week-card-cap .week-mini-plate {
 }
 
 .live-pitch {
+  width: 100%;
   aspect-ratio: 105 / 68;
-  min-height: 9.75rem;
-  background: #148044;
+  background: #0a3d24;
+  container-type: inline-size;
+}
+
+.live-stage {
+  min-width: 0;
+  width: 100%;
+  max-width: 700px;
+  container-type: inline-size;
+}
+
+.pl-hud {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-height: 2.1rem;
+  margin-bottom: 0.4rem;
+}
+
+.pl-bug {
+  display: flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
+  font-variant-numeric: tabular-nums;
+}
+
+.pl-bug-teams {
+  background: #0a0a0c;
+}
+
+.pl-bug-row {
+  display: grid;
+  grid-template-columns: 3px 11px 1.7rem 0.85rem;
+  align-items: center;
+  gap: 0.12rem;
+  height: 1.02rem;
+  padding-right: 0.2rem;
+  color: #fff;
+}
+
+.pl-bug-row + .pl-bug-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pl-bug-kit {
+  align-self: stretch;
+  background: #888;
+}
+
+.pl-bug-crest {
+  width: 11px;
+  height: 11px;
+  object-fit: contain;
+}
+
+.pl-bug-name {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pl-bug-score {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pl-bug-clock {
+  display: flex;
+  min-width: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  background: #16161c;
+  padding: 0 0.26rem;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pl-bug-added {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  background: #ffd000;
+  padding: 0 0.16rem;
+  color: #111;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.pl-bug-added[data-on="1"] {
+  display: flex;
+}
+
+.pl-sting {
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  align-self: stretch;
+  overflow: hidden;
+  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  background: #0a0a0c;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pl-sting[data-on="1"] {
+  opacity: 1;
+  visibility: visible;
+  animation: pl-sting-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pl-sting-bar {
+  background: #3d195b;
+}
+
+.pl-sting[data-kind="goal"] .pl-sting-bar,
+.pl-sting[data-kind="save"] .pl-sting-bar {
+  background: #00e05a;
+}
+
+.pl-sting[data-kind="card"] .pl-sting-bar,
+.pl-sting[data-kind="added"] .pl-sting-bar {
+  background: #ffd000;
+}
+
+.pl-sting[data-kind="red"] .pl-sting-bar,
+.pl-sting[data-kind="offside"] .pl-sting-bar {
+  background: #e10600;
+}
+
+.pl-sting[data-kind="var"] .pl-sting-bar {
+  background: #7b2cbf;
+  animation: pl-var-pulse 0.9s ease-in-out infinite;
+}
+
+.pl-sting[data-kind="out"] .pl-sting-bar,
+.pl-sting[data-kind="stop"] .pl-sting-bar {
+  background: #f3f3f3;
+}
+
+.pl-sting-copy {
+  padding: 0.2rem 0.42rem 0.18rem;
+}
+
+.pl-sting-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.pl-sting[data-kind="goal"] .pl-sting-title {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+
+.pl-sting[data-kind="out"] .pl-sting-title {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.pl-sting-sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pl-sting-sub:empty {
+  display: none;
+}
+
+@keyframes pl-sting-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pl-var-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@container (max-width: 22rem) {
+  .pl-bug-row {
+    grid-template-columns: 3px 9px 1.55rem 0.75rem;
+    height: 0.92rem;
+  }
+
+  .pl-bug-crest {
+    width: 9px;
+    height: 9px;
+  }
+
+  .pl-bug-name,
+  .pl-bug-clock,
+  .pl-bug-score,
+  .pl-bug-added {
+    font-size: 8px;
+  }
+
+  .pl-bug-clock {
+    min-width: 2.15rem;
+    padding: 0 0.18rem;
+  }
 }
 
 .hide-scroll {
@@ -536,7 +766,9 @@ html.light .week-card-cap .week-mini-plate {
   .week-swap-rail-glow,
   .week-swap-xp,
   .week-swap-row,
-  .live-dot {
+  .live-dot,
+  .pl-sting[data-on="1"],
+  .pl-sting[data-kind="var"] .pl-sting-bar {
     animation: none;
   }
 }

@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { playerPhoto, shirtPhoto } from "@/lib/format";
-import type { RankedPlayer } from "@/lib/xp/model";
+
+export type PhotoPlayer = {
+  code: number;
+  teamCode: number;
+  position: number;
+  webName: string;
+};
 
 function subscribe() {
   return () => {};
@@ -12,7 +18,7 @@ export function PlayerPhoto({
   player,
   className,
 }: {
-  player: RankedPlayer;
+  player: PhotoPlayer;
   className?: string;
 }) {
   const isClient = useSyncExternalStore(subscribe, () => true, () => false);

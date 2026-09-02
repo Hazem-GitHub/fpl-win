@@ -176,6 +176,7 @@ function BuilderInner({
         </div>
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         <FormationBoard
+          key={plan.squad.map((p) => p.id).join("-")}
           options={rankFormations(plan.squad)}
           gameweek={gameweek}
           compact

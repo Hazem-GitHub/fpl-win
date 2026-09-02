@@ -3,7 +3,7 @@
 import { Abbr } from "@/components/Abbr";
 import { useAppState } from "@/components/AppState";
 import { parseIdList, parseRankingsView } from "@/lib/app-href";
-import { abbr, posAbbr } from "@/lib/abbr";
+import { ABBR } from "@/lib/abbr";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ElementTypeId, FplTeam } from "@/lib/fpl/types";
@@ -22,27 +22,11 @@ import {
   Calendar,
   CalendarRange,
   ChevronsUpDown,
-  CircleDashed,
-  Clock,
   Coins,
   Crown,
-  Flame,
-  Footprints,
   Gem,
-  Goal,
-  Layers,
-  Leaf,
-  Minus,
-  RefreshCw,
   RotateCcw,
   Search,
-  Shield,
-  Target,
-  UserCheck,
-  UserRound,
-  UserRoundMinus,
-  Users,
-  Wallet,
   X,
 } from "lucide-react";
 
@@ -63,27 +47,27 @@ type FdrFilter = "any" | "easy" | "mid" | "hard";
 type OwnFilter = "any" | "template" | "diff" | "ultra";
 
 const VIEWS: { id: QuickView; label: string; hint: string; icon: LucideIcon }[] = [
-  { id: "gw", label: abbr("thisGw"), hint: `Best ${abbr("xp")} this week`, icon: Calendar },
+  { id: "gw", label: ABBR.thisGw.short, hint: `Best ${ABBR.xp.short} this week`, icon: Calendar },
   { id: "next5", label: "Next 5", hint: "Horizon haul", icon: CalendarRange },
-  { id: "captain", label: "Captains", hint: `Likely starters, ${abbr("xpGw")}`, icon: Crown },
-  { id: "value", label: "Value ≤£7.0m", hint: "Points per million", icon: Coins },
-  { id: "diff", label: "Differentials", hint: "Under 10% owned", icon: Gem },
+  { id: "captain", label: "Captains", hint: `Likely starters, ${ABBR.xpGw.short}`, icon: Crown },
+  { id: "value", label: "Value", hint: "Points per million, ≤ £7.0m", icon: Coins },
+  { id: "diff", label: "Diff", hint: "Under 10% owned", icon: Gem },
 ];
 
-const POS_PILLS: { id: 0 | ElementTypeId; label: string; icon: LucideIcon }[] = [
-  { id: 0, label: "All pos", icon: Layers },
-  { id: 1, label: abbr("gk"), icon: Goal },
-  { id: 2, label: abbr("def"), icon: Shield },
-  { id: 3, label: abbr("mid"), icon: Footprints },
-  { id: 4, label: abbr("fwd"), icon: Target },
+const POS_PILLS: { id: 0 | ElementTypeId; label: string; hint: string }[] = [
+  { id: 0, label: "All", hint: "All positions" },
+  { id: 1, label: ABBR.gk.short, hint: ABBR.gk.long },
+  { id: 2, label: ABBR.def.short, hint: ABBR.def.long },
+  { id: 3, label: ABBR.mid.short, hint: ABBR.mid.long },
+  { id: 4, label: ABBR.fwd.short, hint: ABBR.fwd.long },
 ];
 
 const PRICE_BANDS: { id: PriceBand; label: string }[] = [
-  { id: "any", label: "Any £" },
-  { id: "lte45", label: "≤ £4.5m" },
-  { id: "lte70", label: "≤ £7.0m" },
-  { id: "mid", label: "£7–10m" },
-  { id: "prem", label: "£10m+" },
+  { id: "any", label: "Any" },
+  { id: "lte45", label: "≤4.5" },
+  { id: "lte70", label: "≤7.0" },
+  { id: "mid", label: "7–10" },
+  { id: "prem", label: "10+" },
 ];
 
 function riskClass(p: RankedPlayer): string {
@@ -301,7 +285,7 @@ function PlayerTableInner({
   if (pos) {
     chips.push({
       key: "pos",
-      label: posAbbr(POS_SHORT[pos]),
+      label: POS_SHORT[pos] === "GKP" ? "GK" : POS_SHORT[pos],
       clear: () => setPos(0),
     });
   }
@@ -312,11 +296,11 @@ function PlayerTableInner({
       clear: () => setPrice("any"),
     });
   }
-  if (mins === "start") chips.push({ key: "mins", label: abbr("likelyXi"), clear: () => setMins("any") });
+  if (mins === "start") chips.push({ key: "mins", label: ABBR.likelyXi.short, clear: () => setMins("any") });
   if (mins === "rotate") chips.push({ key: "mins", label: "Rotation", clear: () => setMins("any") });
-  if (fdr === "easy") chips.push({ key: "fdr", label: `Easy ${abbr("fdr")}`, clear: () => setFdr("any") });
-  if (fdr === "mid") chips.push({ key: "fdr", label: `${abbr("fdr")} 3`, clear: () => setFdr("any") });
-  if (fdr === "hard") chips.push({ key: "fdr", label: `Tough ${abbr("fdr")}`, clear: () => setFdr("any") });
+  if (fdr === "easy") chips.push({ key: "fdr", label: `Easy ${ABBR.fdr.short}`, clear: () => setFdr("any") });
+  if (fdr === "mid") chips.push({ key: "fdr", label: `${ABBR.fdr.short} 3`, clear: () => setFdr("any") });
+  if (fdr === "hard") chips.push({ key: "fdr", label: `Tough ${ABBR.fdr.short}`, clear: () => setFdr("any") });
   if (own === "template") chips.push({ key: "own", label: "Template ≥20%", clear: () => setOwn("any") });
   if (own === "diff") chips.push({ key: "own", label: "Diff <10%", clear: () => setOwn("any") });
   if (own === "ultra") chips.push({ key: "own", label: "Ultra <5%", clear: () => setOwn("any") });
@@ -337,30 +321,29 @@ function PlayerTableInner({
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="space-y-3 rounded-2xl border border-line bg-background/90 p-3 shadow-sm md:sticky md:top-16 md:z-20 md:backdrop-blur-md sm:p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative min-w-[12rem] flex-1">
+      <div className="space-y-2 rounded-xl border border-line bg-background/90 p-2.5 shadow-sm md:sticky md:top-16 md:z-20 md:backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search players</span>
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted">
               <Icon icon={Search} size="sm" />
             </span>
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full rounded-xl border border-line bg-panel px-8 py-2 text-sm outline-none ring-accent/40 placeholder:text-muted focus:ring-2"
-              placeholder="Search name, club, or position"
+              className="w-full rounded-lg border border-line bg-panel py-1.5 pl-8 pr-3 text-sm outline-none ring-accent/40 placeholder:text-muted focus:ring-2"
+              placeholder="Name, club, position"
             />
           </label>
-          <p className="tabular text-xs text-muted sm:ml-auto">
+          <p className="shrink-0 tabular text-[11px] text-muted">
             <span className="font-semibold text-foreground">{rows.length}</span>
-            {" of "}
-            {players.length}
+            <span className="text-muted">/{players.length}</span>
           </p>
           {filtered ? (
             <button
               type="button"
               onClick={reset}
-              className="rounded-full border border-line px-3 py-1.5 text-xs text-muted hover:text-foreground"
+              className="shrink-0 rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-foreground"
             >
               <IconLabel icon={RotateCcw} size="xs">
                 Reset
@@ -369,14 +352,14 @@ function PlayerTableInner({
           ) : null}
         </div>
 
-        <div className="hide-scroll flex gap-1.5 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-1.5">
           {VIEWS.map((item) => (
             <button
               key={item.id}
               type="button"
               title={item.hint}
               onClick={() => applyView(item.id)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${
                 view === item.id
                   ? "bg-accent text-on-accent"
                   : "bg-panel-2 text-muted hover:text-foreground"
@@ -386,116 +369,132 @@ function PlayerTableInner({
               {item.label}
             </button>
           ))}
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
+          <span className="hidden h-4 w-px bg-line sm:block" aria-hidden />
           {POS_PILLS.map((item) => (
             <button
               key={item.id}
               type="button"
+              title={item.hint}
               onClick={() => {
                 setPos(item.id);
                 setView(null);
               }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+              className={`inline-flex min-w-8 items-center justify-center rounded-md px-2 py-1 text-[11px] font-semibold ${
                 pos === item.id
                   ? "bg-accent text-on-accent"
                   : "bg-panel-2 text-muted hover:text-foreground"
               }`}
             >
-              <Icon icon={item.icon} size="xs" />
               {item.label}
             </button>
           ))}
         </div>
 
-        <FilterRow label="Price" icon={Wallet}>
-          {PRICE_BANDS.map((band) => (
-            <Pill
-              key={band.id}
-              active={price === band.id}
-              icon={Coins}
-              onClick={() => {
-                setView(null);
-                setPrice(band.id);
-              }}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <Seg label="£" title="Price">
+            {PRICE_BANDS.map((band) => (
+              <SegBtn
+                key={band.id}
+                active={price === band.id}
+                title={band.id === "any" ? "Any price" : `£${band.label}m`}
+                onClick={() => {
+                  setView(null);
+                  setPrice(band.id);
+                }}
+              >
+                {band.label}
+              </SegBtn>
+            ))}
+          </Seg>
+          <Seg label={ABBR.mins.short} title={ABBR.mins.long}>
+            <SegBtn active={mins === "any"} onClick={() => { setMins("any"); setView(null); }}>
+              Any
+            </SegBtn>
+            <SegBtn
+              active={mins === "start"}
+              title={ABBR.likelyXi.long}
+              onClick={() => { setMins("start"); setView(null); }}
             >
-              {band.label}
-            </Pill>
-          ))}
-        </FilterRow>
+              {ABBR.xi.short}
+            </SegBtn>
+            <SegBtn
+              active={mins === "rotate"}
+              title="Rotation risk"
+              onClick={() => { setMins("rotate"); setView(null); }}
+            >
+              Rot
+            </SegBtn>
+          </Seg>
+          <Seg label={ABBR.fdr.short} title={ABBR.fdr.long}>
+            <SegBtn active={fdr === "any"} onClick={() => { setFdr("any"); setView(null); }}>
+              Any
+            </SegBtn>
+            <SegBtn
+              active={fdr === "easy"}
+              tone="easy"
+              title="Easy fixture, FDR ≤ 2"
+              onClick={() => { setFdr("easy"); setView(null); }}
+            >
+              Easy
+            </SegBtn>
+            <SegBtn
+              active={fdr === "mid"}
+              title={`${ABBR.fdr.short} 3`}
+              onClick={() => { setFdr("mid"); setView(null); }}
+            >
+              3
+            </SegBtn>
+            <SegBtn
+              active={fdr === "hard"}
+              tone="hard"
+              title="Tough fixture, FDR ≥ 4"
+              onClick={() => { setFdr("hard"); setView(null); }}
+            >
+              Hard
+            </SegBtn>
+          </Seg>
+          <Seg label={ABBR.sel.short} title={ABBR.sel.long}>
+            <SegBtn active={own === "any"} onClick={() => { setOwn("any"); setView(null); }}>
+              Any
+            </SegBtn>
+            <SegBtn
+              active={own === "template"}
+              title="Template, 20%+ owned"
+              onClick={() => { setOwn("template"); setView(null); }}
+            >
+              ≥20%
+            </SegBtn>
+            <SegBtn
+              active={own === "diff"}
+              title="Differential, under 10% owned"
+              onClick={() => { setOwn("diff"); setView(null); }}
+            >
+              &lt;10%
+            </SegBtn>
+            <SegBtn
+              active={own === "ultra"}
+              title="Ultra differential, under 5% owned"
+              onClick={() => { setOwn("ultra"); setView(null); }}
+            >
+              &lt;5%
+            </SegBtn>
+          </Seg>
+          <Seg label="Show" title="Availability">
+            <SegBtn
+              active={availableOnly}
+              title="Hide unavailable players and tiny minutes"
+              onClick={() => setAvailableOnly((on) => !on)}
+            >
+              Avail
+            </SegBtn>
+          </Seg>
+        </div>
 
-        <FilterRow label="Start" icon={Clock}>
-          <Pill active={mins === "any"} icon={Clock} onClick={() => { setMins("any"); setView(null); }}>
-            Any mins
-          </Pill>
-          <Pill
-            active={mins === "start"}
-            icon={UserCheck}
-            onClick={() => {
-              setMins("start");
-              setView(null);
-            }}
-          >
-            {abbr("likelyXi")}
-          </Pill>
-          <Pill
-            active={mins === "rotate"}
-            icon={RefreshCw}
-            onClick={() => {
-              setMins("rotate");
-              setView(null);
-            }}
-          >
-            Rotation
-          </Pill>
-        </FilterRow>
-
-        <FilterRow label="Fixture" icon={CalendarRange}>
-          <Pill active={fdr === "any"} icon={CircleDashed} onClick={() => { setFdr("any"); setView(null); }}>
-            Any {abbr("fdr")}
-          </Pill>
-          <Pill
-            active={fdr === "easy"}
-            icon={Leaf}
-            onClick={() => { setFdr("easy"); setView(null); }}
-            tone="easy"
-          >
-            Easy ≤2
-          </Pill>
-          <Pill active={fdr === "mid"} icon={Minus} onClick={() => { setFdr("mid"); setView(null); }}>
-            {abbr("fdr")} 3
-          </Pill>
-          <Pill
-            active={fdr === "hard"}
-            icon={Flame}
-            onClick={() => { setFdr("hard"); setView(null); }}
-            tone="hard"
-          >
-            Tough ≥4
-          </Pill>
-        </FilterRow>
-
-        <FilterRow label="Owned" icon={Users}>
-          <Pill active={own === "any"} icon={Users} onClick={() => { setOwn("any"); setView(null); }}>
-            Any own
-          </Pill>
-          <Pill active={own === "template"} icon={UserRound} onClick={() => { setOwn("template"); setView(null); }}>
-            Template ≥20%
-          </Pill>
-          <Pill active={own === "diff"} icon={UserRoundMinus} onClick={() => { setOwn("diff"); setView(null); }}>
-            Diff &lt;10%
-          </Pill>
-          <Pill active={own === "ultra"} icon={Gem} onClick={() => { setOwn("ultra"); setView(null); }}>
-            Ultra &lt;5%
-          </Pill>
-        </FilterRow>
-
-        <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-muted">
             Club{clubIds.length ? ` · ${clubIds.length}` : ""}
-          </p>
-          <div className="hide-scroll flex gap-1 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible">
+          </span>
+          <div className="hide-scroll flex min-w-0 flex-1 gap-0.5 overflow-x-auto">
             {clubs.map((club) => {
               const on = clubIds.includes(club.id);
               return (
@@ -504,16 +503,16 @@ function PlayerTableInner({
                   type="button"
                   title={club.name}
                   onClick={() => toggleClub(club.id)}
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
                     on
                       ? "border-accent bg-accent/15 ring-1 ring-accent"
-                      : "border-line bg-panel hover:border-accent/40"
+                      : "border-transparent hover:border-line hover:bg-panel-2"
                   }`}
                 >
                   <ClubCrest
                     code={club.code}
                     name={club.short_name}
-                    className="h-6 w-6 object-contain"
+                    className="h-5 w-5 object-contain"
                   />
                 </button>
               );
@@ -521,38 +520,28 @@ function PlayerTableInner({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={availableOnly}
-              onChange={(e) => setAvailableOnly(e.target.checked)}
-            />
-            Hide unavailable / tiny minutes
-          </label>
-          {chips.length > 0 ? (
-            <div className="flex flex-wrap gap-1 sm:ml-auto">
-              {chips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={chip.clear}
-                  className="inline-flex items-center gap-1 rounded-full bg-panel-2 px-2 py-0.5 text-[11px] text-foreground hover:bg-danger/15 hover:text-danger"
-                >
-                  {chip.label}
-                  <Icon icon={X} size="xs" />
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+        {chips.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.clear}
+                className="inline-flex items-center gap-0.5 rounded-md bg-panel-2 px-1.5 py-0.5 text-[10px] text-foreground hover:bg-danger/15 hover:text-danger"
+              >
+                {chip.label}
+                <Icon icon={X} size="xs" />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-line bg-panel px-4 py-10 text-center">
           <p className="text-sm font-medium">No players match those filters.</p>
           <p className="mt-1 text-xs text-muted">
-            Loosen {abbr("fdr")}, minutes, or price — or reset to {abbr("thisGw")}.
+            Loosen {ABBR.fdr.short}, minutes, or price — or reset to {ABBR.thisGw.short}.
           </p>
           <button
             type="button"
@@ -565,22 +554,16 @@ function PlayerTableInner({
         </div>
       ) : (
         <div className="min-w-0 overflow-x-auto rounded-lg border border-line">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-panel-2 text-xs tracking-wide text-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">Player</th>
                 <th className="px-3 py-2 font-medium">{th("cost", "£")}</th>
                 <th className="px-3 py-2 font-medium">{th("xpThis", <Abbr of="xpGw" />)}</th>
-                <th className="px-3 py-2 font-medium">{th("xpNext3", <Abbr of="xp3" />)}</th>
                 <th className="px-3 py-2 font-medium">{th("xpNext5", <Abbr of="xp5" />)}</th>
-                <th className="px-3 py-2 font-medium">{th("value", <Abbr of="val" />)}</th>
                 <th className="px-3 py-2 font-medium">{th("selectedBy", <Abbr of="sel" />)}</th>
-                <th className="px-3 py-2 font-medium">{th("form", "Form")}</th>
                 <th className="px-3 py-2 font-medium">{th("pMinutes", <Abbr of="mins" />)}</th>
                 <th className="px-3 py-2 font-medium">Fixtures</th>
-                <th className="px-3 py-2 font-medium">
-                  <Abbr of="defcon" />
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -619,18 +602,14 @@ function PlayerTableInner({
                   <td className={`tabular px-3 py-2 font-medium ${xpGradeClass(p.xpThis)}`}>
                     {formatXp(p.xpThis)}
                   </td>
-                  <td className="tabular px-3 py-2">{formatXp(p.xpNext3)}</td>
                   <td className="tabular px-3 py-2">{formatXp(p.xpNext5)}</td>
-                  <td className="tabular px-3 py-2">{formatXp(p.value)}</td>
                   <td className="tabular px-3 py-2">{formatPct(p.selectedBy)}</td>
-                  <td className="tabular px-3 py-2">{formatXp(p.form)}</td>
                   <td className={`tabular px-3 py-2 ${riskClass(p)}`}>
                     {Math.round(p.pMinutes * 100)}%
                   </td>
                   <td className="px-3 py-2">
                     <FixtureStrip player={p} />
                   </td>
-                  <td className="tabular px-3 py-2">{Math.round(p.defconRate * 100)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -651,54 +630,56 @@ function PlayerTableInner({
   );
 }
 
-function FilterRow({
+function Seg({
   label,
-  icon,
+  title,
   children,
 }: {
   label: string;
-  icon: LucideIcon;
+  title?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="hidden shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-muted sm:inline-flex">
-        <Icon icon={icon} size="xs" />
+    <div className="inline-flex items-center gap-1">
+      <span
+        className="text-[9px] font-semibold uppercase tracking-wider text-muted"
+        title={title ?? label}
+      >
         {label}
       </span>
-      {children}
+      <div className="inline-flex rounded-md bg-panel-2 p-0.5">{children}</div>
     </div>
   );
 }
 
-function Pill({
+function SegBtn({
   active,
   onClick,
   children,
+  title,
   tone,
-  icon,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
+  title?: string;
   tone?: "easy" | "hard";
-  icon?: LucideIcon;
 }) {
   const on =
     active && tone === "easy"
-      ? "bg-accent/20 text-accent ring-1 ring-accent/40"
+      ? "bg-accent/20 text-accent"
       : active && tone === "hard"
-        ? "bg-danger/15 text-danger ring-1 ring-danger/30"
+        ? "bg-danger/15 text-danger"
         : active
-          ? "bg-foreground text-background"
-          : "bg-panel-2 text-muted hover:text-foreground";
+          ? "bg-panel text-foreground shadow-sm"
+          : "text-muted hover:text-foreground";
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${on}`}
+      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${on}`}
     >
-      {icon ? <Icon icon={icon} size="xs" /> : null}
       {children}
     </button>
   );

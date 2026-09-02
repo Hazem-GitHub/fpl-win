@@ -19,7 +19,16 @@ export default async function FixturesPage() {
               className="h-10 w-10 object-contain"
             />
             <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-              {headline.status === "live" ? "Live" : "vs"}
+              {headline.status === "live" ? (
+                <span className="flex items-center gap-1.5 text-accent">
+                  <span className="live-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                  <span className="tabular">
+                    {headline.home.score ?? 0}–{headline.away.score ?? 0}
+                  </span>
+                </span>
+              ) : (
+                "vs"
+              )}
             </span>
             <ClubCrest
               code={headline.away.code}
@@ -30,11 +39,6 @@ export default async function FixturesPage() {
         ) : null}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Fixtures</h1>
-          <p className="mt-1 text-sm text-muted">
-            Live pitch simulation while matches are on — second-resolution
-            clock, then the next Premier League gameweeks with fixture
-            difficulty for each side.
-          </p>
         </div>
       </div>
       <MatchBoard initial={board} />

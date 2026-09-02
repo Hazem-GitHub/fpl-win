@@ -1,41 +1,37 @@
 "use client";
 
 import { ChipPanel } from "@/components/ChipPanel";
-import { FormationBoard } from "@/components/FormationBoard";
 import { Icon, IconLabel } from "@/components/Icon";
-import { MatchBoard } from "@/components/MatchBoard";
+import { Pitch } from "@/components/Pitch";
 import { TeamIdForm } from "@/components/TeamIdForm";
 import { TeamPulse } from "@/components/TeamPulse";
 import { WeekDecision } from "@/components/WeekDecision";
+import { WeekPlanApply } from "@/components/WeekPlanApply";
 import type { TeamPulse as Pulse } from "@/lib/advice";
 import { abbr } from "@/lib/abbr";
-import { formatPrice, formatXp, kickoffLabel } from "@/lib/format";
-import type { MatchBoardData } from "@/lib/matches";
-import type { ChipAdvice } from "@/lib/optimize/chips";
-import type { LineupResult } from "@/lib/optimize/lineup";
+import type { FplChipName, FplChipPlay } from "@/lib/fpl/types";
+import { chipAdvice, type ChipAdvice } from "@/lib/optimize/chips";
+import { withCaptain, type LineupResult } from "@/lib/optimize/lineup";
 import type { TransferMove, TransferPlan } from "@/lib/optimize/transfers";
 import type { RankedPlayer } from "@/lib/xp/model";
 import { formatTeamId, rememberTeamId } from "@/lib/team-id";
+import { planKey, weekPlanOptions } from "@/lib/week-plan";
 import {
   ArrowLeftRight,
-  ArrowRight,
   CalendarCheck,
-  CalendarClock,
   Check,
   Copy,
   LayoutGrid,
-  Radio,
   Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppState } from "@/components/AppState";
 
 const TABS = [
   { id: "play", label: "This week", icon: CalendarCheck },
   { id: "xi", label: abbr("xi"), icon: LayoutGrid },
-  { id: "matches", label: "Matches", icon: CalendarClock },
   { id: "chips", label: "Chips", icon: Sparkles },
 ] as const;
 
@@ -53,9 +49,11 @@ export function TeamWorkspace({
   bestPlan,
   holdPlan,
   plans,
-  formations,
+  picked,
+  picksLive,
   chips,
-  matches,
+  chipPlays,
+  activeChip,
   squad,
   madeMoves,
   captainId,
@@ -72,9 +70,11 @@ export function TeamWorkspace({
   bestPlan: TransferPlan;
   holdPlan: TransferPlan;
   plans: TransferPlan[];
-  formations: LineupResult[];
+  picked: LineupResult;
+  picksLive: boolean;
   chips: ChipAdvice[];
-  matches: MatchBoardData;
+  chipPlays: FplChipPlay[];
+  activeChip: FplChipName | null;
   squad: RankedPlayer[];
   madeMoves: TransferMove[];
   captainId: number | null;
@@ -84,19 +84,73 @@ export function TeamWorkspace({
   const [switchTeam, setSwitchTeam] = useState(false);
   const [copied, setCopied] = useState(false);
   const app = useAppState();
+  const options = useMemo(
+    () => weekPlanOptions(plans, bestPlan, holdPlan),
+    [plans, bestPlan, holdPlan],
+  );
+  const recommendedKey = planKey(bestPlan);
+  const [selectedKey, setSelectedKey] = useState(recommendedKey);
+  const [appliedXiKey, setAppliedXiKey] = useState<string | null>(null);
+  const [appliedArmbandKey, setAppliedArmbandKey] = useState<string | null>(null);
+  const [appliedChip, setAppliedChip] = useState<FplChipName | null>(null);
+
+  useEffect(() => {
+    setSelectedKey(planKey(bestPlan));
+    setAppliedXiKey(null);
+    setAppliedArmbandKey(null);
+    setAppliedChip(null);
+  }, [entryId, recommendedKey]);
+
+  const selectedPlan = options.find((row) => planKey(row) === selectedKey) ?? bestPlan;
+  const xiPlan = options.find((row) => planKey(row) === appliedXiKey);
+  const capPlan = options.find((row) => planKey(row) === appliedArmbandKey);
+  const displayLineup = useMemo(() => {
+    const base = xiPlan?.lineup ?? picked;
+    const cap = capPlan?.lineup.captain.id ?? picked.captain.id;
+    const vice = capPlan?.lineup.vice.id ?? picked.vice.id;
+    return withCaptain(base, cap, vice);
+  }, [xiPlan, capPlan, picked]);
+  const displaySquad = xiPlan
+    ? xiPlan.lineup.xi.concat(xiPlan.lineup.bench)
+    : squad;
+  const selectedChips = useMemo(
+    () =>
+      chipAdvice({
+        eventId: gameweekId,
+        plays: chipPlays,
+        lineup: selectedPlan.lineup,
+        squad: selectedPlan.lineup.xi.concat(selectedPlan.lineup.bench),
+        bestPlan,
+        holdPlan,
+        activeChip,
+      }),
+    [gameweekId, chipPlays, selectedPlan, bestPlan, holdPlan, activeChip],
+  );
+  const displayChips = useMemo(
+    () =>
+      chipAdvice({
+        eventId: gameweekId,
+        plays: chipPlays,
+        lineup: displayLineup,
+        squad: displaySquad,
+        bestPlan,
+        holdPlan,
+        activeChip,
+      }),
+    [gameweekId, chipPlays, displayLineup, displaySquad, bestPlan, holdPlan, activeChip],
+  );
 
   useEffect(() => {
     rememberTeamId(entryId);
-    const planned = bestPlan.lineup.xi.concat(bestPlan.lineup.bench);
     app.hydrateTeam({
       id: entryId,
       name: teamName,
-      clubIds: planned.map((p) => p.teamId),
-      playerIds: planned.map((p) => p.id),
-      formation: bestPlan.lineup.formation,
+      clubIds: squad.map((p) => p.teamId),
+      playerIds: squad.map((p) => p.id),
+      formation: picked.formation,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryId, teamName, bestPlan.lineup.formation]);
+  }, [entryId, teamName, picked.formation]);
 
   useEffect(() => {
     function syncFromHash() {
@@ -114,11 +168,12 @@ export function TeamWorkspace({
     window.history.replaceState(null, "", `#${next}`);
   }
 
-  const chipPulse = chips.find((c) => c.recommend) ?? chips.find((c) => c.urgency !== "none");
-  const liveCount = matches.live.length;
-  const nextMatch = matches.groups
-    .flatMap((g) => g.matches)
-    .find((m) => m.status === "upcoming");
+  const chipPulse =
+    (appliedChip
+      ? displayChips.find((c) => c.chip === appliedChip)
+      : null) ??
+    (appliedXiKey || appliedArmbandKey ? displayChips : chips).find((c) => c.recommend) ??
+    chips.find((c) => c.urgency !== "none");
 
   return (
     <div className="space-y-4">
@@ -185,24 +240,9 @@ export function TeamWorkspace({
         <TeamPulse pulse={pulse} />
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
-          <button
-            type="button"
-            className="text-left hover:text-accent"
-            onClick={() => go("matches")}
-            suppressHydrationWarning
-          >
-            <IconLabel icon={Radio} size="xs">
-              {liveCount > 0
-                ? `${liveCount} live`
-                : nextMatch
-                  ? `Next ${nextMatch.home.short} vs ${nextMatch.away.short} · ${kickoffLabel(nextMatch.kickoff)}`
-                  : "Fixtures"}
-            </IconLabel>
-          </button>
-          <span aria-hidden>·</span>
           <button type="button" className="text-left hover:text-accent" onClick={() => go("xi")}>
             <IconLabel icon={LayoutGrid} size="xs">
-              {bestPlan.lineup.formation} · {formatXp(bestPlan.lineup.xp)} {abbr("xiXp")}
+              {displayLineup.formation}
             </IconLabel>
           </button>
           {chipPulse ? (
@@ -221,7 +261,7 @@ export function TeamWorkspace({
       <div
         role="tablist"
         aria-label="Team views"
-        className="sticky top-14 z-20 -mx-3 grid grid-cols-4 gap-1 border-y border-line bg-background/90 px-3 py-2 backdrop-blur-md sm:top-16 sm:mx-0 sm:rounded-xl sm:border sm:px-2"
+        className="sticky top-14 z-20 -mx-3 grid grid-cols-3 gap-1 border-y border-line bg-background/90 px-3 py-2 backdrop-blur-md sm:top-16 sm:mx-0 sm:rounded-xl sm:border sm:px-2"
       >
         {TABS.map((item) => {
           const selected = tab === item.id;
@@ -255,42 +295,80 @@ export function TeamWorkspace({
           bestPlan={bestPlan}
           holdPlan={holdPlan}
           plans={plans}
-          formations={formations.map((row) => ({
-            formation: row.formation,
-            xp: row.xp,
-          }))}
+          formations={[{ formation: displayLineup.formation, xp: displayLineup.xp }]}
           entryId={entryId}
           teamName={teamName}
-          chips={chips}
           squad={squad}
           madeMoves={madeMoves}
           captainId={captainId}
           viceId={viceId}
           gameweekId={gameweekId}
+          selectedKey={selectedKey}
+          onSelectPlan={setSelectedKey}
         />
       ) : null}
 
       {tab === "xi" ? (
-        <FormationBoard options={formations} gameweek={gameweekId} />
-      ) : null}
-
-      {tab === "matches" ? (
-        <div className="space-y-3">
-          <MatchBoard initial={matches} compact />
-          <p className="text-center text-xs">
-            <Link href="/fixtures" className="text-accent">
-              <IconLabel icon={ArrowRight} size="xs">
-                Full fixture list
-              </IconLabel>
-            </Link>
-          </p>
+        <div className="space-y-2">
+          <WeekPlanApply
+            options={options}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
+            appliedXi={appliedXiKey === selectedKey}
+            appliedArmband={appliedArmbandKey === selectedKey}
+            appliedChip={appliedChip}
+            onApplyXi={() =>
+              setAppliedXiKey((key) => (key === selectedKey ? null : selectedKey))
+            }
+            onApplyArmband={() =>
+              setAppliedArmbandKey((key) => (key === selectedKey ? null : selectedKey))
+            }
+            onApplyChip={(chip) =>
+              setAppliedChip((current) => (current === chip ? null : chip))
+            }
+            selectedChips={selectedChips}
+          />
+          {picksLive || appliedXiKey ? null : (
+            <p className="text-[11px] leading-5 text-muted">
+              FPL has not published this {abbr("gw")} team yet. Apply a plan to preview this{" "}
+              {abbr("gw")} {abbr("xi")}.
+            </p>
+          )}
+          <Pitch
+            xi={displayLineup.xi}
+            bench={displayLineup.bench}
+            captainId={displayLineup.captain.id}
+            viceId={displayLineup.vice.id}
+            gameweek={gameweekId}
+            formation={displayLineup.formation}
+          />
         </div>
       ) : null}
 
       {tab === "chips" ? (
-        <div>
-          <h2 className="mb-2 text-sm font-semibold">Chip window</h2>
-          <ChipPanel chips={chips} />
+        <div className="space-y-2">
+          <WeekPlanApply
+            options={options}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
+            appliedXi={appliedXiKey === selectedKey}
+            appliedArmband={appliedArmbandKey === selectedKey}
+            appliedChip={appliedChip}
+            onApplyXi={() =>
+              setAppliedXiKey((key) => (key === selectedKey ? null : selectedKey))
+            }
+            onApplyArmband={() =>
+              setAppliedArmbandKey((key) => (key === selectedKey ? null : selectedKey))
+            }
+            onApplyChip={(chip) =>
+              setAppliedChip((current) => (current === chip ? null : chip))
+            }
+            selectedChips={selectedChips}
+          />
+          <ChipPanel
+            chips={appliedXiKey || appliedArmbandKey || appliedChip ? displayChips : chips}
+            appliedChip={appliedChip}
+          />
         </div>
       ) : null}
     </div>

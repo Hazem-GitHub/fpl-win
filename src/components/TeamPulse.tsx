@@ -23,36 +23,11 @@ function signedPrice(tenths: number): string {
   return `${sign}${formatPrice(Math.abs(tenths))}`;
 }
 
-function topShare(rank: number, managers: number): { label: string; fill: number } {
+function topShare(rank: number, managers: number): string {
   const pct = (rank / Math.max(managers, 1)) * 100;
-  const label =
-    pct < 1 ? `Top ${pct.toFixed(2)}%` : pct < 10 ? `Top ${pct.toFixed(1)}%` : `Top ${Math.round(pct)}%`;
-  return { label, fill: Math.max(4, Math.min(100, 100 - pct)) };
-}
-
-function Meter({
-  fill,
-  tone = "accent",
-}: {
-  fill: number;
-  tone?: "accent" | "warn" | "danger" | "muted";
-}) {
-  const bar =
-    tone === "danger"
-      ? "bg-danger"
-      : tone === "warn"
-        ? "bg-warn"
-        : tone === "muted"
-          ? "bg-muted/50"
-          : "bg-accent";
-  return (
-    <div className="mt-2 h-1 overflow-hidden rounded-full bg-line">
-      <div
-        className={`h-full rounded-full ${bar}`}
-        style={{ width: `${Math.max(0, Math.min(100, fill))}%` }}
-      />
-    </div>
-  );
+  if (pct < 1) return `Top ${pct.toFixed(2)}%`;
+  if (pct < 10) return `Top ${pct.toFixed(1)}%`;
+  return `Top ${Math.round(pct)}%`;
 }
 
 function Card({
@@ -61,8 +36,6 @@ function Card({
   value,
   hint,
   hintTone,
-  meter,
-  meterTone,
   pips,
   className,
 }: {
@@ -71,8 +44,6 @@ function Card({
   value: string;
   hint: string;
   hintTone?: "accent" | "danger" | "warn" | "muted";
-  meter: number;
-  meterTone?: "accent" | "warn" | "danger" | "muted";
   pips?: { filled: number; total: number };
   className?: string;
 }) {
@@ -85,9 +56,9 @@ function Card({
           ? "text-accent"
           : "text-muted";
   const pipFill =
-    meterTone === "danger"
+    hintTone === "danger"
       ? "bg-danger"
-      : meterTone === "warn"
+      : hintTone === "warn"
         ? "bg-warn"
         : "bg-accent";
   return (
@@ -113,9 +84,7 @@ function Card({
             />
           ))}
         </div>
-      ) : (
-        <Meter fill={meter} tone={meterTone} />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -132,14 +101,12 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
   const valueDelta =
     pulse.lastSquadValue != null ? pulse.squadValue - pulse.lastSquadValue : null;
   const vsStart = pulse.squadValue - STARTING_BUDGET;
-  const bankFill = Math.min(100, (pulse.bank / 50) * 100);
   const bankTight = pulse.bank < 5;
   const bankAfterDelta = pulse.bankAfter - pulse.bank;
-  const ftFill = (pulse.freeTransfers / pulse.maxFt) * 100;
 
   const rankHint =
     rankShare && rankMove != null
-      ? `${rankShare.label} · ${
+      ? `${rankShare} · ${
           rankMove === 0
             ? "unchanged"
             : rankMove < 0
@@ -147,25 +114,21 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
               : `▼ ${rankMove.toLocaleString("en-GB")}`
         }`
       : rankShare
-        ? `${rankShare.label} of ${pulse.managers.toLocaleString("en-GB")}`
+        ? rankShare
         : "Rank pending";
 
   const squadHint =
-    valueDelta == null
-      ? `${signedPrice(vsStart)} vs £100.0m start`
-      : valueDelta === 0 && vsStart === 0
-        ? "Unchanged since start"
-        : valueDelta === 0
-          ? `${signedPrice(vsStart)} vs start`
-          : `${signedPrice(valueDelta)} this week · ${signedPrice(vsStart)} vs start`;
+    valueDelta != null && valueDelta !== 0
+      ? `${signedPrice(valueDelta)} this week`
+      : `${signedPrice(vsStart)} vs start`;
 
   const bankHint = bankTight
-    ? "Tight — little room for an upgrade"
+    ? "Tight for an upgrade"
     : bankAfterDelta !== 0
-      ? `${bankAfterDelta > 0 ? "Frees" : "Spends"} ${formatPrice(Math.abs(bankAfterDelta))} on the plan`
+      ? `${bankAfterDelta > 0 ? "Frees" : "Spends"} ${formatPrice(Math.abs(bankAfterDelta))}`
       : pulse.bank >= 20
-        ? "Room for a £2.0m+ swap"
-        : "Enough for a small upgrade";
+        ? "Room to upgrade"
+        : "Small upgrade";
 
   const ftHint =
     pulse.planHits > 0
@@ -185,11 +148,6 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
             ? `${abbr("gw")} ${pulse.lastGwEvent} ${pulse.lastGwPoints} pts`
             : "Season total"
         }
-        meter={
-          pulse.lastGwPoints != null
-            ? Math.min(100, (pulse.lastGwPoints / 80) * 100)
-            : 8
-        }
       />
       <Card
         icon={rankMove != null && rankMove > 0 ? ArrowDownRight : ArrowUpRight}
@@ -198,10 +156,6 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
         hint={rankHint}
         hintTone={
           rankMove == null ? "muted" : rankMove < 0 ? "accent" : rankMove > 0 ? "danger" : "muted"
-        }
-        meter={rankShare?.fill ?? 8}
-        meterTone={
-          rankMove != null && rankMove > 0 ? "danger" : "accent"
         }
       />
       <Card
@@ -212,8 +166,6 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
         hintTone={
           valueDelta == null ? "muted" : valueDelta > 0 ? "accent" : valueDelta < 0 ? "danger" : "muted"
         }
-        meter={Math.min(100, (pulse.squadValue / 1100) * 100)}
-        meterTone={valueDelta != null && valueDelta < 0 ? "danger" : "accent"}
       />
       <Card
         icon={Wallet}
@@ -221,8 +173,6 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
         value={formatPrice(pulse.bank)}
         hint={bankHint}
         hintTone={bankTight ? "warn" : bankAfterDelta < 0 ? "danger" : "accent"}
-        meter={Math.max(6, bankFill)}
-        meterTone={bankTight ? "warn" : "accent"}
       />
       <Card
         icon={Repeat2}
@@ -230,8 +180,6 @@ export function TeamPulse({ pulse }: { pulse: Pulse }) {
         value={`${pulse.freeTransfers}/${pulse.maxFt}`}
         hint={ftHint}
         hintTone={pulse.planHits > 0 ? "danger" : pulse.freeTransfers === 0 ? "warn" : "accent"}
-        meter={Math.max(8, ftFill)}
-        meterTone={pulse.planHits > 0 ? "danger" : pulse.freeTransfers === 0 ? "warn" : "accent"}
         pips={{ filled: pulse.freeTransfers, total: pulse.maxFt }}
         className="col-span-2 sm:col-span-1"
       />

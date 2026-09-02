@@ -5,8 +5,7 @@ import { abbr } from "@/lib/abbr";
 import { formatXp } from "@/lib/format";
 import type { LineupResult } from "@/lib/optimize/lineup";
 import { Undo2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { IconLabel } from "./Icon";
 import { Pitch } from "./Pitch";
 
@@ -37,44 +36,14 @@ export function FormationBoard({
   gameweek?: number;
   compact?: boolean;
 }) {
-  return (
-    <Suspense>
-      <FormationBoardInner
-        options={options}
-        gameweek={gameweek}
-        compact={compact}
-      />
-    </Suspense>
-  );
-}
-
-function FormationBoardInner({
-  options,
-  gameweek,
-  compact,
-}: {
-  options: LineupResult[];
-  gameweek?: number;
-  compact?: boolean;
-}) {
-  const searchParams = useSearchParams();
   const app = useAppState();
   const best = options[0];
-  const fromUrl = searchParams.get("formation");
-  const wanted =
-    (fromUrl && options.some((opt) => opt.formation === fromUrl) && fromUrl) ||
-    (app.formation && options.some((opt) => opt.formation === app.formation)
-      ? app.formation
-      : null) ||
-    best?.formation ||
-    "";
-  const [selected, setSelected] = useState(wanted);
+  const [selected, setSelected] = useState(best?.formation ?? "");
   const current = options.find((opt) => opt.formation === selected) ?? best;
 
   useEffect(() => {
-    if (wanted && wanted !== selected) setSelected(wanted);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when inbound formation changes
-  }, [wanted]);
+    if (best?.formation) setSelected(best.formation);
+  }, [best?.formation]);
 
   if (!best || !current) return null;
   const comparing = current.formation !== best.formation;

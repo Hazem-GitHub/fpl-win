@@ -5,8 +5,9 @@ import { ClubCrest } from "@/components/ClubCrest";
 import { IconLabel } from "@/components/Icon";
 import { Jump } from "@/components/Jump";
 import { LivePitch } from "@/components/LivePitch";
+import { MatchStats } from "@/components/MatchStats";
 import { fixturesHref, playersHref } from "@/lib/app-href";
-import type { MatchBoardData, MatchSide, MatchView } from "@/lib/matches";
+import type { MatchBoardData, MatchEventGroup, MatchSide, MatchView } from "@/lib/matches";
 import { abbr } from "@/lib/abbr";
 import { kickoffLabel } from "@/lib/format";
 import { ArrowRight, BarChart3, X } from "lucide-react";
@@ -18,25 +19,6 @@ function fdrClass(fdr: number) {
   if (fdr >= 4) return "bg-danger/15 text-danger";
   if (fdr <= 2) return "bg-accent/15 text-accent";
   return "bg-panel-2 text-muted";
-}
-
-function ratingTone(rating: number) {
-  if (rating >= 8.2) return "text-accent";
-  if (rating >= 6.8) return "text-warn";
-  return "text-muted";
-}
-
-function needsPoll(board: MatchBoardData): boolean {
-  if (board.live.length > 0) return true;
-  const now = Date.now();
-  const windowMs = 90 * 60 * 1000;
-  return board.groups.some((g) =>
-    g.matches.some((m) => {
-      if (!m.kickoff) return false;
-      const kick = Date.parse(m.kickoff);
-      return Number.isFinite(kick) && Math.abs(kick - now) < windowMs;
-    }),
-  );
 }
 
 function SideBlock({
@@ -83,74 +65,43 @@ function SideBlock({
           >
             {side.short}
           </p>
-          <p className="truncate text-[11px] text-muted">{side.name}</p>
+          <span
+            className={`mt-0.5 inline-block rounded px-1 py-px text-[10px] ${fdrClass(side.fdr)}`}
+            title={`${abbr("fdr")} ${side.fdr}`}
+          >
+            {abbr("fdr")} {side.fdr}
+          </span>
         </div>
-      </div>
-      <div
-        className={`mt-1.5 flex flex-wrap items-center gap-1 ${
-          align === "right" ? "justify-end" : ""
-        }`}
-      >
-        <span
-          className={`tabular rounded px-1 py-px text-[10px] font-semibold ${ratingTone(side.rating)} bg-foreground/8`}
-          title="Club strength from FPL attack/defence ratings"
-        >
-          {side.rating.toFixed(1)}
-        </span>
-        <span
-          className={`rounded px-1 py-px text-[10px] ${fdrClass(side.fdr)}`}
-          title={`${abbr("fdr")} ${side.fdr}`}
-        >
-          {abbr("fdr")} {side.fdr}
-        </span>
       </div>
     </div>
   );
 }
 
-function RatingRow({ match }: { match: MatchView }) {
+function isPastGroup(group: MatchEventGroup): boolean {
   return (
-    <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
-      <div className="flex items-center gap-1">
-        <span
-          className={`tabular rounded px-1 py-px font-semibold ${ratingTone(match.home.rating)} bg-foreground/8`}
-          title="Club strength from FPL attack/defence ratings"
-        >
-          {match.home.rating.toFixed(1)}
-        </span>
-        <span
-          className={`rounded px-1 py-px ${fdrClass(match.home.fdr)}`}
-          title={`${abbr("fdr")} ${match.home.fdr}`}
-        >
-          {abbr("fdr")} {match.home.fdr}
-        </span>
-      </div>
-      {match.winner && match.winner !== "draw" && match.winRating != null ? (
-        <span className="font-semibold uppercase tracking-wide text-accent">
-          {match.status === "live" ? "Ahead" : "Win"} {match.winRating.toFixed(1)}
-        </span>
-      ) : match.winner === "draw" ? (
-        <span className="uppercase tracking-wide text-muted">Level</span>
-      ) : (
-        <span className="uppercase tracking-widest text-muted">
-          {match.eventName.replace("Gameweek", abbr("gw"))}
-        </span>
-      )}
-      <div className="flex items-center gap-1">
-        <span
-          className={`rounded px-1 py-px ${fdrClass(match.away.fdr)}`}
-          title={`${abbr("fdr")} ${match.away.fdr}`}
-        >
-          {abbr("fdr")} {match.away.fdr}
-        </span>
-        <span
-          className={`tabular rounded px-1 py-px font-semibold ${ratingTone(match.away.rating)} bg-foreground/8`}
-          title="Club strength from FPL attack/defence ratings"
-        >
-          {match.away.rating.toFixed(1)}
-        </span>
-      </div>
-    </div>
+    group.matches.length > 0 &&
+    group.matches.every((m) => m.status === "finished")
+  );
+}
+
+function byKickoff(a: MatchView, b: MatchView): number {
+  const aTime = a.kickoff ? Date.parse(a.kickoff) : Number.POSITIVE_INFINITY;
+  const bTime = b.kickoff ? Date.parse(b.kickoff) : Number.POSITIVE_INFINITY;
+  const aMs = Number.isFinite(aTime) ? aTime : Number.POSITIVE_INFINITY;
+  const bMs = Number.isFinite(bTime) ? bTime : Number.POSITIVE_INFINITY;
+  return aMs - bMs || a.id - b.id;
+}
+
+function needsPoll(board: MatchBoardData): boolean {
+  if (board.live.length > 0) return true;
+  const now = Date.now();
+  const windowMs = 90 * 60 * 1000;
+  return board.groups.some((g) =>
+    g.matches.some((m) => {
+      if (!m.kickoff) return false;
+      const kick = Date.parse(m.kickoff);
+      return Number.isFinite(kick) && Math.abs(kick - now) < windowMs;
+    }),
   );
 }
 
@@ -158,35 +109,24 @@ function MatchCard({
   match,
   highlight,
   yours,
+  onOpen,
 }: {
   match: MatchView;
   highlight?: boolean;
   yours?: boolean;
+  onOpen?: (match: MatchView) => void;
 }) {
   const live = match.status === "live";
   const done = match.status === "finished";
+  const upcoming = match.status === "upcoming";
   const homeWin = match.winner === "home";
   const awayWin = match.winner === "away";
+  const openable = (done || upcoming) && onOpen;
 
-  return (
-    <article
-      className={`rounded-lg border px-3 py-2.5 ${
-        highlight
-          ? "border-accent/70 bg-accent/10 ring-1 ring-accent/40"
-          : yours
-            ? "border-accent/30 bg-panel"
-            : live
-              ? "border-accent/50 bg-accent/5"
-              : homeWin || awayWin
-                ? "border-accent/25 bg-panel"
-                : "border-line bg-panel"
-      }`}
-    >
+  const body = (
+    <>
       {live ? (
-        <>
-          <LivePitch match={match} />
-          <RatingRow match={match} />
-        </>
+        <LivePitch match={match} />
       ) : (
         <>
           <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-widest">
@@ -229,13 +169,9 @@ function MatchCard({
                   vs
                 </p>
               )}
-              {match.winner && match.winner !== "draw" && match.winRating != null ? (
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                  Win {match.winRating.toFixed(1)}
-                </p>
-              ) : match.winner === "draw" ? (
-                <p className="mt-1 text-[10px] uppercase tracking-wide text-muted">
-                  Level
+              {openable ? (
+                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-accent">
+                  {done ? "Stats" : "News"}
                 </p>
               ) : null}
             </div>
@@ -248,8 +184,39 @@ function MatchCard({
           </div>
         </>
       )}
-    </article>
+    </>
   );
+
+  const shell = `rounded-lg border px-3 py-2.5 ${
+    highlight
+      ? "border-accent/70 bg-accent/10 ring-1 ring-accent/40"
+      : yours
+        ? "border-accent/30 bg-panel"
+        : live
+          ? "border-accent/50 bg-accent/5"
+          : homeWin || awayWin
+            ? "border-accent/25 bg-panel"
+            : "border-line bg-panel"
+  }`;
+
+  if (openable) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(match)}
+        className={`${shell} w-full text-left transition hover:border-accent/50`}
+        aria-label={
+          done
+            ? `${match.home.short} ${match.home.score ?? 0} ${match.away.short} ${match.away.score ?? 0}, match stats`
+            : `${match.home.short} vs ${match.away.short}, ${kickoffLabel(match.kickoff)}, match news`
+        }
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <article className={shell}>{body}</article>;
 }
 
 export function MatchBoard({
@@ -279,12 +246,22 @@ function MatchBoardInner({
   const focusClubId =
     Number.isFinite(urlClub) && urlClub > 0 ? urlClub : app.focusClubId;
   const [board, setBoard] = useState(initial);
+  const [openMatch, setOpenMatch] = useState<MatchView | null>(null);
   const [, setPollWake] = useState(0);
   const shouldPoll = needsPoll(board);
 
   useEffect(() => {
     setBoard(initial);
   }, [initial]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem("fpl-win-live-demo");
+      window.localStorage.removeItem("fpl-win-live-demo-80");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (shouldPoll) return;
@@ -368,16 +345,9 @@ function MatchBoardInner({
     return null;
   }, [board, focusClubId]);
 
-  function rankMatch(match: MatchView): number {
-    if (focusClubId && (match.home.id === focusClubId || match.away.id === focusClubId)) {
-      return 0;
-    }
-    if (squadClubs.has(match.home.id) || squadClubs.has(match.away.id)) return 1;
-    return 2;
-  }
-
   const compactGroup = compact
-    ? board.groups.find(
+    ? board.groups.find((g) => g.matches.some((m) => m.status === "live")) ??
+      board.groups.find(
         (g) =>
           g.eventId === (board.currentEventId ?? board.upcomingEventId) &&
           g.matches.some((m) => m.status !== "finished"),
@@ -386,7 +356,16 @@ function MatchBoardInner({
       board.groups[0]
     : null;
   const groups = compact ? (compactGroup ? [compactGroup] : []) : board.groups;
-  const live = board.live;
+
+  function cardFlags(match: MatchView) {
+    return {
+      highlight: Boolean(
+        focusClubId &&
+          (match.home.id === focusClubId || match.away.id === focusClubId),
+      ),
+      yours: squadClubs.has(match.home.id) || squadClubs.has(match.away.id),
+    };
+  }
 
   return (
     <div className="space-y-4">
@@ -419,85 +398,45 @@ function MatchBoardInner({
           </Link>
         </div>
       ) : null}
-      {live.length > 0 ? (
-        <section className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <span className="live-dot h-2 w-2 rounded-full bg-accent" />
-              Live matches
-            </h2>
-            <span className="text-[10px] uppercase tracking-widest text-muted">
-              Live feed
-            </span>
-          </div>
-          <p className="text-[10px] text-muted">
-            Simulated play from the live score and clock — not broadcast
-            tracking.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[...live].sort((a, b) => rankMatch(a) - rankMatch(b)).map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                highlight={Boolean(
-                  focusClubId &&
-                    (match.home.id === focusClubId || match.away.id === focusClubId),
-                )}
-                yours={
-                  squadClubs.has(match.home.id) || squadClubs.has(match.away.id)
-                }
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       {groups.map((group) => {
+        const playing = group.matches
+          .filter((m) => m.status === "live")
+          .sort(byKickoff);
         const upcoming = group.matches
           .filter((m) => m.status === "upcoming")
-          .sort((a, b) => rankMatch(a) - rankMatch(b));
+          .sort(byKickoff);
         const finished = group.matches
           .filter((m) => m.status === "finished")
-          .sort((a, b) => rankMatch(a) - rankMatch(b));
-        const playing = group.matches.filter((m) => m.status === "live");
+          .sort(byKickoff);
         if (compact && upcoming.length === 0 && playing.length === 0) {
           return null;
         }
-        const shownUpcoming = compact ? upcoming.slice(0, 6) : upcoming;
-        return (
-          <section key={group.eventId} className="space-y-2">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-sm font-semibold">
-                {compact ? `Next fixtures · ${group.name}` : group.name}
-              </h2>
-              {compact ? (
-                <Link href="/fixtures" className="text-xs text-accent">
-                  <IconLabel icon={ArrowRight} size="xs">
-                    Full list
-                  </IconLabel>
-                </Link>
-              ) : (
-                <span className="text-xs text-muted">
-                  {upcoming.length} to play
-                  {finished.length ? ` · ${finished.length} done` : ""}
-                </span>
-              )}
-            </div>
+        const shownUpcoming = compact ? upcoming.slice(0, playing.length ? 4 : 6) : upcoming;
+        const liveNow = playing.length > 0;
+        const past = !compact && isPastGroup(group);
+        const matchLists = (
+          <>
+            {playing.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {playing.map((match) => (
+                  <div key={match.id} className="sm:col-span-2">
+                    <MatchCard
+                      match={match}
+                      {...cardFlags(match)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {shownUpcoming.length > 0 ? (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {shownUpcoming.map((match) => (
                   <MatchCard
                     key={match.id}
                     match={match}
-                    highlight={Boolean(
-                      focusClubId &&
-                        (match.home.id === focusClubId ||
-                          match.away.id === focusClubId),
-                    )}
-                    yours={
-                      squadClubs.has(match.home.id) ||
-                      squadClubs.has(match.away.id)
-                    }
+                    {...cardFlags(match)}
+                    onOpen={setOpenMatch}
                   />
                 ))}
               </div>
@@ -508,22 +447,74 @@ function MatchBoardInner({
                   <MatchCard
                     key={match.id}
                     match={match}
-                    highlight={Boolean(
-                      focusClubId &&
-                        (match.home.id === focusClubId ||
-                          match.away.id === focusClubId),
-                    )}
-                    yours={
-                      squadClubs.has(match.home.id) ||
-                      squadClubs.has(match.away.id)
-                    }
+                    {...cardFlags(match)}
+                    onOpen={setOpenMatch}
                   />
                 ))}
               </div>
             ) : null}
+          </>
+        );
+        if (past) {
+          return (
+            <details
+              key={group.eventId}
+              className="rounded-xl border border-line bg-panel px-3 py-2"
+            >
+              <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                <span>{group.name}</span>
+                <span className="text-xs font-medium text-muted">
+                  {finished.length} done
+                </span>
+              </summary>
+              <div className="mt-3 space-y-2">{matchLists}</div>
+            </details>
+          );
+        }
+        return (
+          <section key={group.eventId} className="space-y-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                {liveNow ? (
+                  <span className="live-dot h-2 w-2 rounded-full bg-accent" />
+                ) : null}
+                {compact
+                  ? liveNow
+                    ? `Live · ${group.name}`
+                    : `Next fixtures · ${group.name}`
+                  : group.name}
+              </h2>
+              {compact ? (
+                <Link href="/fixtures" className="text-xs text-accent">
+                  <IconLabel icon={ArrowRight} size="xs">
+                    Full list
+                  </IconLabel>
+                </Link>
+              ) : (
+                <span className="text-xs text-muted">
+                  {liveNow ? `${playing.length} live` : ""}
+                  {liveNow && upcoming.length ? " · " : ""}
+                  {upcoming.length ? `${upcoming.length} to play` : ""}
+                  {finished.length
+                    ? `${liveNow || upcoming.length ? " · " : ""}${finished.length} done`
+                    : ""}
+                </span>
+              )}
+            </div>
+            {matchLists}
           </section>
         );
       })}
+      {openMatch ? (
+        <MatchStats
+          match={
+            board.groups
+              .flatMap((g) => g.matches)
+              .find((m) => m.id === openMatch.id) ?? openMatch
+          }
+          onClose={() => setOpenMatch(null)}
+        />
+      ) : null}
     </div>
   );
 }

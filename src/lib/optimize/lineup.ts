@@ -1,3 +1,4 @@
+import type { FplPick } from "@/lib/fpl/types";
 import { XI_MAX, XI_MIN } from "@/lib/fpl/rules";
 import type { RankedPlayer } from "@/lib/xp/model";
 
@@ -9,6 +10,77 @@ export type LineupResult = {
   xp: number;
   formation: string;
 };
+
+/** FPL account XI (pick slots 1–11) and bench (12–15), not an optimized shape. */
+export function lineupFromPicks(
+  picks: FplPick[],
+  squad: RankedPlayer[],
+): LineupResult | null {
+  const byId = new Map(squad.map((p) => [p.id, p]));
+  const ordered = [...picks].sort((a, b) => a.position - b.position);
+  const xi: RankedPlayer[] = [];
+  const bench: RankedPlayer[] = [];
+  const seen = new Set<number>();
+  for (const pick of ordered) {
+    const player = byId.get(pick.element);
+    if (!player) continue;
+    seen.add(player.id);
+    if (pick.position <= 11 && xi.length < 11) xi.push(player);
+    else bench.push(player);
+  }
+  for (const player of squad) {
+    if (!seen.has(player.id)) bench.push(player);
+  }
+  if (xi.length === 0) return null;
+
+  const nd = xi.filter((p) => p.position === 2).length;
+  const nm = xi.filter((p) => p.position === 3).length;
+  const nf = xi.filter((p) => p.position === 4).length;
+  const capPick = ordered.find((p) => p.is_captain && byId.has(p.element));
+  const vicePick = ordered.find((p) => p.is_vice_captain && byId.has(p.element));
+  const captain =
+    (capPick && byId.get(capPick.element)) ??
+    xi.reduce((best, p) => (p.xpThis > best.xpThis ? p : best));
+  let vice =
+    (vicePick && byId.get(vicePick.element) && vicePick.element !== captain.id
+      ? byId.get(vicePick.element)
+      : null) ??
+    xi.find((p) => p.id !== captain.id) ??
+    captain;
+  if (vice.id === captain.id) {
+    vice = xi.find((p) => p.id !== captain.id) ?? captain;
+  }
+  const base = xi.reduce((sum, p) => sum + p.xpThis, 0);
+  return {
+    xi,
+    bench,
+    captain,
+    vice,
+    xp: base + captain.xpThis,
+    formation: `${nd}-${nm}-${nf}`,
+  };
+}
+
+/** Honour a captain/vice already set this week, if they are in the XI. */
+export function withCaptain(
+  lineup: LineupResult,
+  captainId: number | null,
+  viceId: number | null,
+): LineupResult {
+  if (captainId == null && viceId == null) return lineup;
+  const inXi = (id: number | null) =>
+    id != null ? lineup.xi.find((p) => p.id === id) ?? null : null;
+  const captain = inXi(captainId) ?? lineup.captain;
+  let vice = inXi(viceId);
+  if (!vice || vice.id === captain.id) {
+    vice =
+      lineup.vice.id !== captain.id
+        ? lineup.vice
+        : lineup.xi.find((p) => p.id !== captain.id) ?? captain;
+  }
+  const base = lineup.xi.reduce((sum, p) => sum + p.xpThis, 0);
+  return { ...lineup, captain, vice, xp: base + captain.xpThis };
+}
 
 function combinations<T>(items: T[], k: number): T[][] {
   if (k === 0) return [[]];
